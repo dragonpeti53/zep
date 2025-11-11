@@ -23,11 +23,11 @@ impl Server {
         println!("Server running on {}", &self.addr);
 
         loop {
-            let (mut socket, _) = listener.accept().await?;
+            let (mut socket, remote_addr) = listener.accept().await?;
             let router = self.router.clone();
 
             tokio::spawn(async move {
-                if let Some(req) = parse_request(&mut socket).await {
+                if let Some(req) = parse_request(&mut socket, remote_addr).await {
                     let resp = router.handle(req);
                     let resp_bytes = serialize_response(resp);
                     let _ = socket.write_all(&resp_bytes).await;
@@ -39,7 +39,7 @@ impl Server {
     }
 }
 
-async fn parse_request(socket: &mut tokio::net::TcpStream) -> Option<Request> {
+async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net::SocketAddr) -> Option<Request> {
     let mut buffer = vec![0u8; 16384];
     let n = socket.read(&mut buffer).await.ok()?;
     if n == 0 {
@@ -73,12 +73,15 @@ async fn parse_request(socket: &mut tokio::net::TcpStream) -> Option<Request> {
         }
     }
 
+    let remote_addr = remote_addr.to_string();
+
     Some(Request {
         method,
         path,
         version,
         headers,
         body,
+        remote_addr,
     })
 }
 

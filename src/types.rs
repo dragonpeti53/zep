@@ -4,6 +4,7 @@ pub struct Request {
     pub version: String,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
+    pub remote_addr: String,
 }
 
 pub struct Response {
