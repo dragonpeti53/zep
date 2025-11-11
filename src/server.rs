@@ -53,7 +53,7 @@ async fn parse_request(socket: &mut tokio::net::TcpStream) -> Option<Request> {
     let mut parts = request_line.split_whitespace();
     let method = parts.next()?.to_string();
     let path = parts.next()?.to_string();
-    let _version = parts.next()?.to_string();
+    let version = parts.next()?.to_string();
 
     let mut headers = Vec::new();
     for line in lines {
@@ -76,6 +76,7 @@ async fn parse_request(socket: &mut tokio::net::TcpStream) -> Option<Request> {
     Some(Request {
         method,
         path,
+        version,
         headers,
         body,
     })
