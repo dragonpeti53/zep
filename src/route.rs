@@ -1,8 +1,16 @@
 type Handler = fn(Request) -> Response;
 type Logger = fn(&Request);
 type _Middleware = fn(&Request);
+type _SimpleHandler = fn(Request) -> Response;
+type _ParamHandler = fn(Request, Vec<&str>) -> Response;
 
 use crate::types::{Request, Response};
+
+/*#[derive(Clone)]
+enum Handler {
+    SimpleHandler(SimpleHandler),
+    ParamHandler(ParamHandler),
+}*/
 
 #[derive(Clone)]
 struct Route {
