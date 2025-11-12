@@ -21,6 +21,30 @@ impl From<&str> for Method {
     }
 }
 
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Method::GET => write!(f, "GET"),
+            Method::POST => write!(f, "POST"),
+            Method::PUT => write!(f, "PUT"),
+            Method::DELETE => write!(f, "DELETE"),
+            Method::Other(_) => write!(f, "OTHER"),
+        }
+    }
+}
+
+impl Method {
+    pub fn to_str(&self) -> &str {
+        match self {
+            Method::GET => "GET",
+            Method::POST => "POST",
+            Method::PUT => "PUT",
+            Method::DELETE => "DELETE",
+            Method::Other(_) => "OTHER",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Version {
     Http10,
@@ -38,6 +62,30 @@ impl From<&str> for Version {
             "HTTP/2.0" | "HTTP/2" => Version::Http2,
             "HTTP/3.0" | "HTTP/3" => Version::Http3,
             _ => Version::Other,
+        }
+    }
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Version::Http10 => write!(f, "HTTP/1.0"),
+            Version::Http11 => write!(f, "HTTP/1.1"),
+            Version::Http2 => write!(f, "HTTP/2.0"),
+            Version::Http3 => write!(f, "HTTP/3.0"),
+            Version::Other => write!(f, "OTHER"),
+        }
+    }
+}
+
+impl Version {
+    pub fn to_str(&self) -> &str {
+        match self {
+            Version::Http10 => "HTTP/1.0",
+            Version::Http11 => "HTTP/1.1",
+            Version::Http2 => "HTTP/2.0",
+            Version::Http3 => "HTTP/3.0",
+            Version::Other => "OTHER",
         }
     }
 }
