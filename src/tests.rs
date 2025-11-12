@@ -19,7 +19,7 @@ mod tests {
             remote_addr: "".to_string(),
         };
 
-        let result = router.handle(req);
+        let result = router.handle(req).await;
 
         let expected = Response {
             status_code: StatusCode::Ok,

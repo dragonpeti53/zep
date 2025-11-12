@@ -28,7 +28,7 @@ impl Server {
 
             tokio::spawn(async move {
                 if let Some(req) = parse_request(&mut socket, remote_addr).await {
-                    let resp = router.handle(req);
+                    let resp = router.handle(req).await;
                     let resp_bytes = serialize_response(resp);
                     let _ = socket.write_all(&resp_bytes).await;
                 }

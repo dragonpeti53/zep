@@ -45,7 +45,7 @@ impl Router {
         );
     }
 
-    pub fn handle(&self, req: Request) -> Response {
+    pub async fn handle(&self, req: Request) -> Response {
         if let Some(logger) = &self.logger {
             logger(&req);
         }
