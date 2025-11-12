@@ -100,6 +100,8 @@ pub enum StatusCode {
     Ok,
     NotFound,
     InternalServerError,
+    BadRequest,
+    Forbidden,
     Custom(u16),
 }
 
@@ -117,6 +119,8 @@ impl StatusCode {
             StatusCode::Ok => 200,
             StatusCode::NotFound => 404,
             StatusCode::InternalServerError => 500,
+            StatusCode::BadRequest => 400,
+            StatusCode::Forbidden => 403,
             StatusCode::Custom(c) => *c,
         }
     }
@@ -126,6 +130,8 @@ impl StatusCode {
             StatusCode::Ok => "OK",
             StatusCode::NotFound => "Not Found",
             StatusCode::InternalServerError => "Internal Server Error",
+            StatusCode::BadRequest => "Bad Request",
+            StatusCode::Forbidden => "Forbidden",
             StatusCode::Custom(_) => "Custom Code",
         }
     }

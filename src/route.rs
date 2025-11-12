@@ -1,4 +1,4 @@
-type Handler = fn(Request) -> Response;
+pub type Handler = fn(Request) -> Response;
 type Logger = fn(&Request);
 type Middleware = fn(Request, Handler) -> Response;
 type _SimpleHandler = fn(Request) -> Response;
