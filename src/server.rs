@@ -3,7 +3,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 
 use crate::route::Router;
-use crate::types::{Request, Response, Method, Version};
+use crate::types::{Request, Response, Method, Version, HeaderMap, ParamMap};
 
 pub struct Server {
     addr: String,
@@ -55,13 +55,13 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
     let path = parts.next()?.to_string();
     let version = Version::from(parts.next()?);
 
-    let mut headers = Vec::new();
+    let mut headers = HeaderMap::new();
     for line in lines {
         if line.is_empty() {
             break;
         }
         if let Some((key, value)) = line.split_once(": ") {
-            headers.push((key.to_string(), value.to_string()));
+            headers.insert(key.to_string(), value.to_string());
         }
     }
 
@@ -75,6 +75,8 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
 
     let remote_addr = remote_addr.to_string();
 
+    let params = ParamMap::new();
+
     Some(Request {
         method,
         path,
@@ -82,17 +84,20 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
         headers,
         body,
         remote_addr,
+        params,
     })
 }
 
 fn serialize_response(resp: Response) -> Vec<u8> {
-    let mut response = format!(
-        "HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n",
-        resp.status_code,
-        resp.body.len()
-    ).into_bytes();
-
-    response.extend(resp.body);
+    let mut response = format!("HTTP/1.1 {}\r\n", resp.status_code).into_bytes();
+    for (key, value) in &resp.headers {
+        response.extend(format!("{}: {}\r\n", key, value).as_bytes());
+    }
+    if !resp.headers.contains_key("Content-Length") {
+        response.extend(format!("Content-Length: {}\r\n", resp.body.len()).as_bytes());
+    }
+    response.extend(b"\r\n");
+    response.extend(&resp.body);
     response
 }
 

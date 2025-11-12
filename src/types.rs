@@ -1,5 +1,10 @@
 use std::fmt;
 
+use std::collections::HashMap;
+
+pub type HeaderMap = HashMap<String, String>;
+pub type ParamMap = HashMap<String, String>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Method {
     GET,
@@ -130,35 +135,40 @@ pub struct Request {
     pub method: Method,
     pub path: String,
     pub version: Version,
-    pub headers: Vec<(String, String)>,
+    pub headers: HeaderMap,
     pub body: Vec<u8>,
     pub remote_addr: String,
+    pub params: ParamMap,
 }
 
 #[derive(PartialEq, Debug)]
 pub struct Response {
     pub status_code: StatusCode,
+    pub headers: HeaderMap,
     pub body: Vec<u8>,
 }
 
 impl Response {
-    pub fn new(status_code: StatusCode, body: Vec<u8>) -> Self {
+    pub fn new<B: Into<Vec<u8>>>(status_code: StatusCode, headers: HeaderMap, body: B) -> Self {
         Response {
             status_code,
-            body,
+            headers,
+            body: body.into(),
         }
     }
 
-    pub fn ok(body: &str) -> Self {
+    pub fn ok<B: Into<Vec<u8>>>(body: B) -> Self {
         Response {
             status_code: StatusCode::Ok,
-            body: body.as_bytes().to_vec(),
+            headers: HeaderMap::new(),
+            body: body.into(),
         }
     }
 
     pub fn not_found() -> Self {
         Response {
             status_code: StatusCode::NotFound,
+            headers: HeaderMap::new(),
             body: b"404 Not Found".to_vec(),
         }
     }
@@ -166,7 +176,13 @@ impl Response {
     pub fn error() -> Self {
         Response {
             status_code: StatusCode::InternalServerError,
+            headers: HeaderMap::new(),
             body: "".into(),
         }
+    }
+
+    pub fn header(mut self, key: &str, value: &str) -> Self {
+        self.headers.insert(key.to_string(), value.to_string());
+        self
     }
 }
