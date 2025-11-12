@@ -32,7 +32,7 @@ impl Server {
     /// Returns an std::io::Result enum if there was an error.
     /// 
     /// # Example:
-    /// ```ignore
+    /// ```no_run
     /// use zep::{tokio, Router, Server};
     /// 
     /// #[tokio::main]

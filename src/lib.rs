@@ -5,7 +5,7 @@
 //! 
 //! Return a 200 OK response with content "Hello world!" at "GET / ".
 //! 
-//! ```ignore
+//! ```no_run
 //! use zep::{tokio, Router, Request, Response, Server, Method};
 //!
 //! async fn root(_req: Request) -> Response {
