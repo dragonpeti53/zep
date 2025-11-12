@@ -66,12 +66,11 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
     }
 
     let mut body = Vec::new();
-    if let Some((_, value)) = headers.iter().find(|(k, _)| k.to_lowercase() == "content-length") {
-        if let Ok(len) = value.parse::<usize>() {
+    if let Some((_, value)) = headers.iter().find(|(k, _)| k.to_lowercase() == "content-length")
+        && let Ok(len) = value.parse::<usize>() {
             let body_len = len.min(buffer.len() - n);
             body.extend_from_slice(&buffer[n..n + body_len]);
         }
-    }
 
     let remote_addr = remote_addr.to_string();
 

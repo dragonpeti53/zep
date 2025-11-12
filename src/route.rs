@@ -26,6 +26,12 @@ pub struct Router {
     logger: Option<Logger>,
 }
 
+impl Default for Router {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Router {
     pub fn new() -> Self {
         Router {
@@ -37,7 +43,7 @@ impl Router {
     pub fn route(&mut self, method: Method, path: &str, handler: Handler) {
         self.routes.push(
             Route {
-                method: method,
+                method,
                 path: path.to_string(),
                 handler,
                 middleware: None,
@@ -50,8 +56,8 @@ impl Router {
             logger(&req);
         }
         for route in &self.routes {
-            if route.method == req.method {
-                if let Some(params) = match_route(&route.path, &req.path) {
+            if route.method == req.method
+                && let Some(params) = match_route(&route.path, &req.path) {
                     req.params = params;
 
                     if let Some(middleware) = route.middleware {
@@ -60,7 +66,6 @@ impl Router {
                         return (route.handler)(req);
                     }
                 }
-            }
         }
         Response::not_found()
     }
