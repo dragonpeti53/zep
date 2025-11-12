@@ -3,7 +3,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 
 use crate::route::Router;
-use crate::types::{Request, Response};
+use crate::types::{Request, Response, Method, Version};
 
 pub struct Server {
     addr: String,
@@ -51,9 +51,9 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
 
     let request_line = lines.next()?;
     let mut parts = request_line.split_whitespace();
-    let method = parts.next()?.to_string();
+    let method = Method::from(parts.next()?); 
     let path = parts.next()?.to_string();
-    let version = parts.next()?.to_string();
+    let version = Version::from(parts.next()?);
 
     let mut headers = Vec::new();
     for line in lines {
@@ -87,9 +87,8 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
 
 fn serialize_response(resp: Response) -> Vec<u8> {
     let mut response = format!(
-        "HTTP/1.1 {} {}\r\nContent-Length: {}\r\n\r\n",
+        "HTTP/1.1 {}\r\nContent-Length: {}\r\n\r\n",
         resp.status_code,
-        resp.reason,
         resp.body.len()
     ).into_bytes();
 

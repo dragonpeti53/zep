@@ -1,10 +1,10 @@
 type Handler = fn(Request) -> Response;
 type Logger = fn(&Request);
-type _Middleware = fn(&Request);
+type Middleware = fn(Request, Handler) -> Response;
 type _SimpleHandler = fn(Request) -> Response;
 type _ParamHandler = fn(Request, Vec<&str>) -> Response;
 
-use crate::types::{Request, Response};
+use crate::types::{Request, Response, Method};
 
 /*#[derive(Clone)]
 enum Handler {
@@ -14,9 +14,10 @@ enum Handler {
 
 #[derive(Clone)]
 struct Route {
-    method: String,
+    method: Method,
     path: String,
     handler: Handler,
+    middleware: Option<Middleware>,
 }
 
 #[derive(Clone)]
@@ -33,12 +34,13 @@ impl Router {
         }
     }
 
-    pub fn route(&mut self, method: &str, path: &str, handler: Handler) {
+    pub fn route(&mut self, method: Method, path: &str, handler: Handler) {
         self.routes.push(
             Route {
-                method: method.to_string(),
+                method: method,
                 path: path.to_string(),
                 handler,
+                middleware: None,
             }
         );
     }
@@ -49,7 +51,11 @@ impl Router {
         }
         for route in &self.routes {
             if route.method == req.method && route.path == req.path {
-                return (route.handler)(req);
+                if let Some(middleware) = route.middleware {
+                    return middleware(req, route.handler);
+                } else {
+                    return (route.handler)(req);
+                }
             }
         }
         Response::not_found()
@@ -57,5 +63,11 @@ impl Router {
 
     pub fn log(&mut self, logger: Logger) {
         self.logger = Some(logger);
+    }
+
+    pub fn middleware(&mut self, middleware: Middleware) {
+        if let Some(route) = self.routes.last_mut() {
+            route.middleware = Some(middleware);
+        }
     }
 }

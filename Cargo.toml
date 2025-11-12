@@ -1,6 +1,6 @@
 [package]
 name = "zep"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 authors = ["dragonpeti53 dragonpeti53@gmail.com"]
 description = "A minimal, super simple, async HTTP library in Rust"

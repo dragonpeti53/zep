@@ -1,40 +1,124 @@
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Method {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    Other(String)
+}
+
+impl From<&str> for Method {
+    fn from(s: &str) -> Self {
+        match s {
+            "GET" => Method::GET,
+            "POST" => Method::POST,
+            "PUT" => Method::PUT,
+            "DELETE" => Method::DELETE,
+            s => Method::Other(s.to_string())
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Version {
+    Http10,
+    Http11,
+    Http2,
+    Http3,
+    Other,
+}
+
+impl From<&str> for Version {
+    fn from(s: &str) -> Self {
+        match s {
+            "HTTP/1.0" => Version::Http10,
+            "HTTP/1.1" => Version::Http11,
+            "HTTP/2.0" | "HTTP/2" => Version::Http2,
+            "HTTP/3.0" | "HTTP/3" => Version::Http3,
+            _ => Version::Other,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StatusCode {
+    Ok,
+    NotFound,
+    InternalServerError,
+    Custom(u16),
+}
+
+impl fmt::Display for StatusCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let code = self.as_u16();
+        let reason = self.reason();
+        write!(f, "{} {}", code, reason)
+    }
+}
+
+impl StatusCode {
+    pub fn as_u16(&self) -> u16 {
+        match self {
+            StatusCode::Ok => 200,
+            StatusCode::NotFound => 404,
+            StatusCode::InternalServerError => 500,
+            StatusCode::Custom(c) => *c,
+        }
+    }
+
+    pub fn reason(&self) -> &'static str {
+        match self {
+            StatusCode::Ok => "OK",
+            StatusCode::NotFound => "Not Found",
+            StatusCode::InternalServerError => "Internal Server Error",
+            StatusCode::Custom(_) => "Custom Code",
+        }
+    }
+}
+
 pub struct Request {
-    pub method: String,
+    pub method: Method,
     pub path: String,
-    pub version: String,
+    pub version: Version,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
     pub remote_addr: String,
 }
 
+#[derive(PartialEq, Debug)]
 pub struct Response {
-    pub status_code: u16,
-    pub reason: String,
+    pub status_code: StatusCode,
     pub body: Vec<u8>,
 }
 
 impl Response {
-    pub fn new(status_code: u16, reason: String, body: Vec<u8>) -> Self {
+    pub fn new(status_code: StatusCode, body: Vec<u8>) -> Self {
         Response {
             status_code,
-            reason,
             body,
         }
     }
 
     pub fn ok(body: &str) -> Self {
         Response {
-            status_code: 200,
-            reason: "OK".to_string(),
+            status_code: StatusCode::Ok,
             body: body.as_bytes().to_vec(),
         }
     }
 
     pub fn not_found() -> Self {
         Response {
-            status_code: 404,
-            reason: "Not Found".to_string(),
+            status_code: StatusCode::NotFound,
             body: b"404 Not Found".to_vec(),
+        }
+    }
+
+    pub fn error() -> Self {
+        Response {
+            status_code: StatusCode::InternalServerError,
+            body: "".into(),
         }
     }
 }
