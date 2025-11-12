@@ -1,16 +1,26 @@
-pub type Handler = fn(Request) -> Response;
-type Logger = fn(&Request);
-type Middleware = fn(Request, Handler) -> Response;
-type _SimpleHandler = fn(Request) -> Response;
-type _ParamHandler = fn(Request, Vec<&str>) -> Response;
+use std::future::Future;
+use std::pin::Pin;
+
+use std::sync::Arc;
+
+pub type Handler = Arc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+pub type Middleware = Arc<dyn Fn(Request, Handler) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+
+
+//pub type Logger = Arc<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
+
+
+
+
+
+//pub type Handler = fn(Request) -> Response;
+//type Logger = fn(&Request);
+//type Middleware = fn(Request, Handler) -> Response;
+
 
 use crate::types::{Request, Response, Method, ParamMap};
 
-/*#[derive(Clone)]
-enum Handler {
-    SimpleHandler(SimpleHandler),
-    ParamHandler(ParamHandler),
-}*/
+
 
 #[derive(Clone)]
 struct Route {
@@ -23,7 +33,7 @@ struct Route {
 #[derive(Clone)]
 pub struct Router {
     routes: Vec<Route>,
-    logger: Option<Logger>,
+    //logger: Option<Logger>,
 }
 
 impl Default for Router {
@@ -36,11 +46,16 @@ impl Router {
     pub fn new() -> Self {
         Router {
             routes: Vec::new(),
-            logger: None,
+            //logger: None,
         }
     }
 
-    pub fn route(&mut self, method: Method, path: &str, handler: Handler) {
+    pub fn route<F, Fut>(&mut self, method: Method, path: &str, f: F)
+    where
+        F: Fn(Request) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Response> + Send + 'static,
+    {
+        let handler: Handler = Arc::new(move |req| Box::pin(f(req)));
         self.routes.push(
             Route {
                 method,
@@ -52,31 +67,43 @@ impl Router {
     }
 
     pub async fn handle(&self, mut req: Request) -> Response {
-        if let Some(logger) = &self.logger {
-            logger(&req);
-        }
+        /*if let Some(logger) = &self.logger {
+            logger(&req).await;
+        }*/
         for route in &self.routes {
             if route.method == req.method
                 && let Some(params) = match_route(&route.path, &req.path) {
                     req.params = params;
 
-                    if let Some(middleware) = route.middleware {
-                        return middleware(req, route.handler);
+                    if let Some(middleware) = route.middleware.clone() {
+                        return middleware(req, route.handler.clone()).await;
                     } else {
-                        return (route.handler)(req);
+                        return (route.handler)(req).await;
                     }
                 }
         }
         Response::not_found()
     }
 
-    pub fn log(&mut self, logger: Logger) {
+    /*
+    pub fn log<F, Fut>(&mut self, f: F)
+    where
+        F: Fn(&Request) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let logger: Logger = Arc::new(move |req| Box::pin(f(req)));
         self.logger = Some(logger);
-    }
+    }*/
 
-    pub fn middleware(&mut self, middleware: Middleware) {
+
+
+    pub fn middleware<F, Fut>(&mut self, f: F)
+    where
+        F: Fn(Request, Handler) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Response> + Send + 'static,
+    {
         if let Some(route) = self.routes.last_mut() {
-            route.middleware = Some(middleware);
+            route.middleware = Some(Arc::new(move |req, next| Box::pin(f(req, next))));
         }
     }
 }

@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    fn root(_req: Request) -> Response {
+    async fn root(_req: Request) -> Response {
         Response::ok("true")
     }
 
-    fn paramtest(req: Request) -> Response {
+    async fn paramtest(req: Request) -> Response {
         Response::ok(
             if let Some(id) = req.params.get("id") {
                 id
@@ -15,7 +15,7 @@ mod tests {
         )
     }
 
-    fn paramtest2(req: Request) -> Response {
+    async fn paramtest2(req: Request) -> Response {
         Response::ok(
             if let (Some(id1), Some(id2)) = (req.params.get("id1"), req.params.get("id2")) {
                 id1.clone() + id2
