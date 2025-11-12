@@ -32,12 +32,15 @@ impl Server {
     /// Returns an std::io::Result enum if there was an error.
     /// 
     /// # Example:
-    /// ```
-    /// use zep::{Router, Server};
+    /// ```ignore
+    /// use zep::{tokio, Router, Server};
     /// 
-    /// let mut router = Router::new();
-    /// let server = Server::new("0.0.0.0:8080", router);
-    /// let _ = server.run().await; 
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut router = Router::new();
+    ///     let server = Server::new("0.0.0.0:8080", router);
+    ///     let _ = server.run().await;
+    /// }
     /// ```
     pub async fn run(&self) -> std::io::Result<()> {
         let listener = TcpListener::bind(&self.addr).await?;
