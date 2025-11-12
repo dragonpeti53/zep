@@ -1,10 +1,12 @@
 use std::fmt;
-
 use std::collections::HashMap;
 
+/// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
+/// Type alias of `HashMap<String, String>` for convenience.
 pub type ParamMap = HashMap<String, String>;
 
+/// Enum for quick and memory efficient method handling.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Method {
     GET,
@@ -39,6 +41,7 @@ impl fmt::Display for Method {
 }
 
 impl Method {
+    /// Converts a `method` to its text representation in a &str type.
     pub fn to_str(&self) -> &str {
         match self {
             Method::GET => "GET",
@@ -50,6 +53,7 @@ impl Method {
     }
 }
 
+/// Enum for quick and memory efficient HTTP version handling.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Version {
     Http10,
@@ -84,6 +88,7 @@ impl fmt::Display for Version {
 }
 
 impl Version {
+    /// Converts a `Version` to its text representation in a &str type.
     pub fn to_str(&self) -> &str {
         match self {
             Version::Http10 => "HTTP/1.0",
@@ -95,6 +100,7 @@ impl Version {
     }
 }
 
+/// Enum to conveniently handle status codes.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatusCode {
     Ok,
@@ -114,7 +120,7 @@ impl fmt::Display for StatusCode {
 }
 
 impl StatusCode {
-    pub fn as_u16(&self) -> u16 {
+    fn as_u16(&self) -> u16 {
         match self {
             StatusCode::Ok => 200,
             StatusCode::NotFound => 404,
@@ -125,7 +131,7 @@ impl StatusCode {
         }
     }
 
-    pub fn reason(&self) -> &'static str {
+    fn reason(&self) -> &'static str {
         match self {
             StatusCode::Ok => "OK",
             StatusCode::NotFound => "Not Found",
@@ -137,6 +143,8 @@ impl StatusCode {
     }
 }
 
+/// Deserialized HTTP request in the form of a struct for easy handling in code.
+/// Contains request method, path, version, headers, body, remote_addr(ip address of client), and parameters.
 pub struct Request {
     pub method: Method,
     pub path: String,
@@ -147,6 +155,8 @@ pub struct Request {
     pub params: ParamMap,
 }
 
+/// Deserialized HTTP response in the form of a struct for easy handling in code.
+/// Contains status_code(status code), headers and body.
 #[derive(PartialEq, Debug)]
 pub struct Response {
     pub status_code: StatusCode,
@@ -155,6 +165,8 @@ pub struct Response {
 }
 
 impl Response {
+    /// Returns a new response.
+    /// Requires a StatusCode, HeaderMap and generic body.
     pub fn new<B: Into<Vec<u8>>>(status_code: StatusCode, headers: HeaderMap, body: B) -> Self {
         Response {
             status_code,
@@ -163,6 +175,8 @@ impl Response {
         }
     }
 
+    /// Helper function to conveniently return a 200 OK response with no headers.
+    /// Requires generic body.
     pub fn ok<B: Into<Vec<u8>>>(body: B) -> Self {
         Response {
             status_code: StatusCode::Ok,
@@ -171,6 +185,7 @@ impl Response {
         }
     }
 
+    /// Helper function to return a 404 Not Found response.
     pub fn not_found() -> Self {
         Response {
             status_code: StatusCode::NotFound,
@@ -179,6 +194,7 @@ impl Response {
         }
     }
 
+    /// Helper function to return a 500 Internal Server Error response.
     pub fn error() -> Self {
         Response {
             status_code: StatusCode::InternalServerError,
@@ -187,6 +203,8 @@ impl Response {
         }
     }
 
+    /// Appends a header to a response's headermap.
+    /// Requires a key and value.
     pub fn header(mut self, key: &str, value: &str) -> Self {
         self.headers.insert(key.to_string(), value.to_string());
         self

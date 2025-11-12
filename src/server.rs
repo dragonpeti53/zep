@@ -1,16 +1,26 @@
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-
 use crate::route::Router;
 use crate::types::{Request, Response, Method, Version, HeaderMap, ParamMap};
 
+/// Server that wraps the whole HTTP server in itself.
 pub struct Server {
     addr: String,
     router: Router,
 }
 
 impl Server {
+    /// Returns a new Server struct.
+    /// Requires an address and router.
+    /// 
+    /// # Example:
+    /// ```
+    /// use zep::{Router, Server};
+    /// 
+    /// let mut router = Router::new();
+    /// let server = Server::new("0.0.0.0:8080", router);
+    /// ```
     pub fn new(addr: &str, router: Router) -> Self {
         Server {
             addr: addr.to_string(),
@@ -18,6 +28,17 @@ impl Server {
         }
     }
 
+    /// Starts listening and handling requests on the address we defined in new().
+    /// Returns an std::io::Result enum if there was an error.
+    /// 
+    /// # Example:
+    /// ```
+    /// use zep::{Router, Server};
+    /// 
+    /// let mut router = Router::new();
+    /// let server = Server::new("0.0.0.0:8080", router);
+    /// let _ = server.run().await; 
+    /// ```
     pub async fn run(&self) -> std::io::Result<()> {
         let listener = TcpListener::bind(&self.addr).await?;
         println!("Server running on {}", &self.addr);

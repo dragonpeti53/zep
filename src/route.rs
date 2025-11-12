@@ -1,24 +1,16 @@
 use std::future::Future;
 use std::pin::Pin;
-
 use std::sync::Arc;
-
-pub type Handler = Arc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
-pub type Middleware = Arc<dyn Fn(Request, Handler) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
-
-
-//pub type Logger = Arc<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
-
-
-
-
-
-//pub type Handler = fn(Request) -> Response;
-//type Logger = fn(&Request);
-//type Middleware = fn(Request, Handler) -> Response;
-
-
 use crate::types::{Request, Response, Method, ParamMap};
+
+/// Type alias of async handler function for usage in middleware.
+/// A Handler has the following signature:
+/// `async fn handler(Request) -> Response`
+pub type Handler = Arc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+type Middleware = Arc<dyn Fn(Request, Handler) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+
+
+
 
 
 
@@ -30,10 +22,10 @@ struct Route {
     middleware: Option<Middleware>,
 }
 
+/// Router struct, contains routes and the methods needed to route requests to them.
 #[derive(Clone)]
 pub struct Router {
     routes: Vec<Route>,
-    //logger: Option<Logger>,
 }
 
 impl Default for Router {
@@ -43,6 +35,7 @@ impl Default for Router {
 }
 
 impl Router {
+    /// Returns a new Router struct.
     pub fn new() -> Self {
         Router {
             routes: Vec::new(),
@@ -50,12 +43,25 @@ impl Router {
         }
     }
 
-    pub fn route<F, Fut>(&mut self, method: Method, path: &str, f: F)
+    /// Appends a new route to a router struct.
+    /// Requires a method, path and handler function.
+    /// # Example:
+    /// ```
+    /// use zep::{Router, Method, Request, Response};
+    /// 
+    /// async fn handler(_req: Request) -> Response {
+    ///     Response::ok("Hello World!")
+    /// }
+    /// 
+    /// let mut router = Router::new();
+    /// router.route(Method::GET, "/", handler);
+    /// ```
+    pub fn route<F, Fut>(&mut self, method: Method, path: &str, handler: F)
     where
         F: Fn(Request) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Response> + Send + 'static,
     {
-        let handler: Handler = Arc::new(move |req| Box::pin(f(req)));
+        let handler: Handler = Arc::new(move |req| Box::pin(handler(req)));
         self.routes.push(
             Route {
                 method,
@@ -66,7 +72,7 @@ impl Router {
         );
     }
 
-    pub async fn handle(&self, mut req: Request) -> Response {
+    pub(crate) async fn handle(&self, mut req: Request) -> Response {
         /*if let Some(logger) = &self.logger {
             logger(&req).await;
         }*/
@@ -96,7 +102,30 @@ impl Router {
     }*/
 
 
-
+    /// Appends a middleware to the latest route.
+    /// Requires a function with the following signature:
+    /// `async fn middleware(Request, Handler) -> Response`
+    /// 
+    /// # Example:
+    /// 
+    /// ```
+    /// use zep::{Router, Method, Request, Response, Handler};
+    /// 
+    /// async fn handler(_req: Request) -> Response {
+    ///     Response::ok("Hello World!")
+    /// }
+    /// 
+    /// async fn middleware(req: Request, handler: Handler) -> Response {
+    ///     //do stuff
+    ///     return handler(req).await;
+    /// }
+    /// 
+    /// let mut router = Router::new();
+    /// router.route(Method::GET, "/", handler);
+    /// router.middleware(middleware);
+    /// //middleware is now applied to the `GET /` route.
+    /// ```
+    /// 
     pub fn middleware<F, Fut>(&mut self, f: F)
     where
         F: Fn(Request, Handler) -> Fut + Send + Sync + 'static,
