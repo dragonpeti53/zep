@@ -17,7 +17,7 @@ mod tests {
     async fn paramtest2(req: Request) -> Response {
         Response::ok(
             if let (Some(id1), Some(id2)) = (req.params.get("id1"), req.params.get("id2")) {
-                id1.clone() + id2
+                id1.to_string() + id2
             } else {
                 "error".to_string()
             },

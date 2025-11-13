@@ -12,10 +12,16 @@ type Middleware =
     Arc<dyn Fn(Request, Handler) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
 //type Logger = Arc<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum RouteSegment {
+    Static(Arc<str>),
+    Param(Arc<str>),
+}
+
 #[derive(Clone)]
 struct Route {
     method: Method,
-    path: Arc<str>,
+    segments: Vec<RouteSegment>,
     handler: Handler,
     middleware: Option<Middleware>,
 }
@@ -63,7 +69,8 @@ impl Router {
         let handler: Handler = Arc::new(move |req| Box::pin(handler(req)));
         self.routes.push(Route {
             method,
-            path: Arc::from(path),
+            //path: Arc::from(path),
+            segments: parse_route(path),
             handler,
             middleware: None,
         });
@@ -75,7 +82,7 @@ impl Router {
         }*/
         for route in &self.routes {
             if route.method == req.method
-                && let Some(params) = match_route(&route.path, &req.path)
+                && let Some(params) = match_route(&route.segments, &req.path)
             {
                 req.params = Arc::from(params);
 
@@ -134,8 +141,7 @@ impl Router {
     }
 }
 
-fn match_route(route_path: &str, req_path: &str) -> Option<ParamMap> {
-    let route_segments: Vec<&str> = route_path.trim_matches('/').split('/').collect();
+fn match_route(route_segments: &Vec<RouteSegment>, req_path: &str) -> Option<ParamMap> {
     let req_segments: Vec<&str> = req_path.trim_matches('/').split('/').collect();
 
     if route_segments.len() != req_segments.len() {
@@ -144,13 +150,31 @@ fn match_route(route_path: &str, req_path: &str) -> Option<ParamMap> {
 
     let mut params = ParamMap::new();
 
-    for (r_seg, req_seg) in route_segments.iter().zip(req_segments.iter()) {
-        if let Some(part) = r_seg.strip_prefix(':') {
-            params.insert(part.to_string(), req_seg.to_string());
-        } else if r_seg != req_seg {
-            return None;
+    for (route_segment, req_segment) in route_segments.iter().zip(req_segments.iter()) {
+        match route_segment {
+            RouteSegment::Static(seg) => {
+                if seg.as_ref() != *req_segment {
+                    return None;
+                }
+            }
+            RouteSegment::Param(name) => {
+                params.insert(name.clone(), Arc::from(*req_segment));
+            }
         }
     }
 
     Some(params)
+}
+
+fn parse_route(path: &str) -> Vec<RouteSegment> {
+    path.trim_matches('/')
+        .split('/')
+        .map(|s| {
+            if let Some(stripped) = s.strip_prefix(':') {
+                RouteSegment::Param(Arc::from(stripped))
+            } else {
+                RouteSegment::Static(Arc::from(s))
+            }
+        })
+        .collect()
 }

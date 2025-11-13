@@ -5,7 +5,7 @@ use std::sync::Arc;
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
 /// Type alias of `HashMap<String, String>` for convenience.
-pub type ParamMap = HashMap<String, String>;
+pub type ParamMap = HashMap<Arc<str>, Arc<str>>;
 
 /// Enum for quick and memory efficient method handling.
 #[derive(Debug, Clone, PartialEq)]
