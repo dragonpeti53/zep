@@ -33,10 +33,10 @@ mod tests {
             method: Method::GET,
             path: "/".to_string().into(),
             version: Version::Other,
-            headers: Arc::from(HeaderMap::new()),
-            body: Arc::new([0u8]),
+            headers: HeaderMap::new(),
+            body: Vec::new(),
             remote_addr: Arc::from("0.0.0.0:8080"),
-            params: Arc::from(ParamMap::new()),
+            params: ParamMap::new(),
         };
 
         let result = router.handle_request(req).await;
@@ -59,10 +59,10 @@ mod tests {
             method: Method::GET,
             path: "/12".to_string().into(),
             version: Version::Other,
-            headers: Arc::from(HeaderMap::new()),
-            body: Arc::new([0u8]),
+            headers: HeaderMap::new(),
+            body: Vec::new(),
             remote_addr: Arc::from("0.0.0.0:8080"),
-            params: Arc::from(ParamMap::new()),
+            params: ParamMap::new(),
         };
 
         let result = router.handle_request(req).await;
@@ -85,10 +85,10 @@ mod tests {
             method: Method::GET,
             path: "/12/34".to_string().into(),
             version: Version::Other,
-            headers: Arc::from(HeaderMap::new()),
-            body: Arc::new([0u8]),
+            headers: HeaderMap::new(),
+            body: Vec::new(),
             remote_addr: Arc::from("0.0.0.0:8080"),
-            params: Arc::from(ParamMap::new()),
+            params: ParamMap::new(),
         };
 
         let result = router.handle_request(req).await;

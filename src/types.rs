@@ -5,7 +5,7 @@ use std::sync::Arc;
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
 /// Type alias of `HashMap<String, String>` for convenience.
-pub type ParamMap = HashMap<Arc<str>, Arc<str>>;
+pub type ParamMap = HashMap<Arc<str>, String>;
 
 /// Enum for quick and memory efficient method handling.
 #[derive(Debug, Clone, PartialEq)]
@@ -150,10 +150,10 @@ pub struct Request {
     pub method: Method,
     pub path: Arc<str>,
     pub version: Version,
-    pub headers: Arc<HeaderMap>,
-    pub body: Arc<[u8]>,
+    pub headers: HeaderMap,
+    pub body: Vec<u8>,
     pub remote_addr: Arc<str>,
-    pub params: Arc<ParamMap>,
+    pub params: ParamMap,
 }
 
 /// Deserialized HTTP response in the form of a struct for easy handling in code.

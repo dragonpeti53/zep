@@ -69,7 +69,7 @@ async fn parse_request(
         return None;
     }
 
-    let req_text = String::from_utf8_lossy(&buffer[..n]);
+    let req_text = std::str::from_utf8(&buffer[..n]).ok()?;
     let mut lines = req_text.lines();
 
     let request_line = lines.next()?;
@@ -97,14 +97,10 @@ async fn parse_request(
         let body_len = len.min(buffer.len() - n);
         body.extend_from_slice(&buffer[n..n + body_len]);
     }
-    let body = Arc::from(body);
 
     let remote_addr = Arc::from(remote_addr.to_string());
 
     let params = ParamMap::new();
-
-    let headers = Arc::from(headers);
-    let params = Arc::from(params);
 
     Some(Request {
         method,

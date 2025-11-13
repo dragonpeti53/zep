@@ -21,7 +21,7 @@ enum RouteSegment {
 #[derive(Clone)]
 struct Route {
     method: Method,
-    segments: Vec<RouteSegment>,
+    segments: Arc<[RouteSegment]>,
     handler: Handler,
     middleware: Option<Middleware>,
 }
@@ -82,9 +82,9 @@ impl Router {
         }*/
         for route in &self.routes {
             if route.method == req.method
-                && let Some(params) = match_route(&route.segments, &req.path)
+                && let Some(params) = match_route(route.segments.clone(), &req.path)
             {
-                req.params = Arc::from(params);
+                req.params = params;
 
                 if let Some(middleware) = route.middleware.clone() {
                     return middleware(req, route.handler.clone()).await;
@@ -141,7 +141,7 @@ impl Router {
     }
 }
 
-fn match_route(route_segments: &Vec<RouteSegment>, req_path: &str) -> Option<ParamMap> {
+fn match_route(route_segments: Arc<[RouteSegment]>, req_path: &str) -> Option<ParamMap> {
     let req_segments: Vec<&str> = req_path.trim_matches('/').split('/').collect();
 
     if route_segments.len() != req_segments.len() {
@@ -158,7 +158,7 @@ fn match_route(route_segments: &Vec<RouteSegment>, req_path: &str) -> Option<Par
                 }
             }
             RouteSegment::Param(name) => {
-                params.insert(name.clone(), Arc::from(*req_segment));
+                params.insert(name.clone(), req_segment.to_string());
             }
         }
     }
@@ -166,7 +166,7 @@ fn match_route(route_segments: &Vec<RouteSegment>, req_path: &str) -> Option<Par
     Some(params)
 }
 
-fn parse_route(path: &str) -> Vec<RouteSegment> {
+fn parse_route(path: &str) -> Arc<[RouteSegment]> {
     path.trim_matches('/')
         .split('/')
         .map(|s| {
