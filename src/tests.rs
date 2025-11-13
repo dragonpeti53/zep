@@ -1,18 +1,17 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use std::sync::Arc;
     async fn root(_req: Request) -> Response {
         Response::ok("true")
     }
 
     async fn paramtest(req: Request) -> Response {
-        Response::ok(
-            if let Some(id) = req.params.get("id") {
-                id
-            } else {
-                "error"
-            }
-        )
+        Response::ok(if let Some(id) = req.params.get("id") {
+            id
+        } else {
+            "error"
+        })
     }
 
     async fn paramtest2(req: Request) -> Response {
@@ -21,7 +20,7 @@ mod tests {
                 id1.clone() + id2
             } else {
                 "error".to_string()
-            }
+            },
         )
     }
 
@@ -29,29 +28,28 @@ mod tests {
     async fn testrouter() {
         let mut router = Router::new();
         router.route(Method::GET, "/", root);
-        
-        
+
         let req = Request {
             method: Method::GET,
-            path: "/".to_string(),
+            path: "/".to_string().into(),
             version: Version::Other,
-            headers: HeaderMap::new(),
-            body:  Vec::new(),
-            remote_addr: "".to_string(),
-            params: ParamMap::new(),
+            headers: Arc::from(HeaderMap::new()),
+            body: Arc::new([0u8]),
+            remote_addr: Arc::from("0.0.0.0:8080"),
+            params: Arc::from(ParamMap::new()),
         };
 
-        let result = router.handle(req).await;
+        let result = router.handle_request(req).await;
 
         let expected = Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: "true".into()
+            body: "true".into(),
         };
 
         assert_eq!(result, expected);
     }
-    
+
     #[tokio::test]
     async fn testrouter2() {
         let mut router = Router::new();
@@ -59,20 +57,20 @@ mod tests {
 
         let req = Request {
             method: Method::GET,
-            path: "/12".to_string(),
+            path: "/12".to_string().into(),
             version: Version::Other,
-            headers: HeaderMap::new(),
-            body:  Vec::new(),
-            remote_addr: "".to_string(),
-            params: ParamMap::new(),
+            headers: Arc::from(HeaderMap::new()),
+            body: Arc::new([0u8]),
+            remote_addr: Arc::from("0.0.0.0:8080"),
+            params: Arc::from(ParamMap::new()),
         };
 
-        let result = router.handle(req).await;
+        let result = router.handle_request(req).await;
 
         let expected = Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: "12".into()
+            body: "12".into(),
         };
 
         assert_eq!(result, expected);
@@ -85,20 +83,20 @@ mod tests {
 
         let req = Request {
             method: Method::GET,
-            path: "/12/34".to_string(),
+            path: "/12/34".to_string().into(),
             version: Version::Other,
-            headers: HeaderMap::new(),
-            body:  Vec::new(),
-            remote_addr: "".to_string(),
-            params: ParamMap::new(),
+            headers: Arc::from(HeaderMap::new()),
+            body: Arc::new([0u8]),
+            remote_addr: Arc::from("0.0.0.0:8080"),
+            params: Arc::from(ParamMap::new()),
         };
 
-        let result = router.handle(req).await;
+        let result = router.handle_request(req).await;
 
         let expected = Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: "1234".into()
+            body: "1234".into(),
         };
 
         assert_eq!(result, expected);

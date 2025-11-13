@@ -1,23 +1,21 @@
+use crate::types::{Method, ParamMap, Request, Response};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use crate::types::{Request, Response, Method, ParamMap};
 
 /// Type alias of async handler function for usage in middleware.
 /// A Handler has the following signature:
 /// `async fn handler(Request) -> Response`
-pub type Handler = Arc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
-type Middleware = Arc<dyn Fn(Request, Handler) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
-
-
-
-
-
+pub type Handler =
+    Arc<dyn Fn(Request) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+type Middleware =
+    Arc<dyn Fn(Request, Handler) -> Pin<Box<dyn Future<Output = Response> + Send>> + Send + Sync>;
+//type Logger = Arc<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
 
 #[derive(Clone)]
 struct Route {
     method: Method,
-    path: String,
+    path: Arc<str>,
     handler: Handler,
     middleware: Option<Middleware>,
 }
@@ -26,6 +24,7 @@ struct Route {
 #[derive(Clone)]
 pub struct Router {
     routes: Vec<Route>,
+    //global_middleware: Option<Middleware>,
 }
 
 impl Default for Router {
@@ -39,7 +38,7 @@ impl Router {
     pub fn new() -> Self {
         Router {
             routes: Vec::new(),
-            //logger: None,
+            //global_middleware: None,
         }
     }
 
@@ -48,11 +47,11 @@ impl Router {
     /// # Example:
     /// ```
     /// use zep::{Router, Method, Request, Response};
-    /// 
+    ///
     /// async fn handler(_req: Request) -> Response {
     ///     Response::ok("Hello World!")
     /// }
-    /// 
+    ///
     /// let mut router = Router::new();
     /// router.route(Method::GET, "/", handler);
     /// ```
@@ -62,31 +61,30 @@ impl Router {
         Fut: Future<Output = Response> + Send + 'static,
     {
         let handler: Handler = Arc::new(move |req| Box::pin(handler(req)));
-        self.routes.push(
-            Route {
-                method,
-                path: path.to_string(),
-                handler,
-                middleware: None,
-            }
-        );
+        self.routes.push(Route {
+            method,
+            path: Arc::from(path),
+            handler,
+            middleware: None,
+        });
     }
 
-    pub(crate) async fn handle(&self, mut req: Request) -> Response {
+    pub(crate) async fn handle_request(&self, mut req: Request) -> Response {
         /*if let Some(logger) = &self.logger {
             logger(&req).await;
         }*/
         for route in &self.routes {
             if route.method == req.method
-                && let Some(params) = match_route(&route.path, &req.path) {
-                    req.params = params;
+                && let Some(params) = match_route(&route.path, &req.path)
+            {
+                req.params = Arc::from(params);
 
-                    if let Some(middleware) = route.middleware.clone() {
-                        return middleware(req, route.handler.clone()).await;
-                    } else {
-                        return (route.handler)(req).await;
-                    }
+                if let Some(middleware) = route.middleware.clone() {
+                    return middleware(req, route.handler.clone()).await;
+                } else {
+                    return (route.handler)(req).await;
                 }
+            }
         }
         Response::not_found()
     }
@@ -101,31 +99,30 @@ impl Router {
         self.logger = Some(logger);
     }*/
 
-
     /// Appends a middleware to the latest route.
     /// Requires a function with the following signature:
     /// `async fn middleware(Request, Handler) -> Response`
-    /// 
+    ///
     /// # Example:
-    /// 
+    ///
     /// ```
     /// use zep::{Router, Method, Request, Response, Handler};
-    /// 
+    ///
     /// async fn handler(_req: Request) -> Response {
     ///     Response::ok("Hello World!")
     /// }
-    /// 
+    ///
     /// async fn middleware(req: Request, handler: Handler) -> Response {
     ///     //do stuff
     ///     return handler(req).await;
     /// }
-    /// 
+    ///
     /// let mut router = Router::new();
     /// router.route(Method::GET, "/", handler);
     /// router.middleware(middleware);
     /// //middleware is now applied to the `GET /` route.
     /// ```
-    /// 
+    ///
     pub fn middleware<F, Fut>(&mut self, f: F)
     where
         F: Fn(Request, Handler) -> Fut + Send + Sync + 'static,
@@ -148,8 +145,8 @@ fn match_route(route_path: &str, req_path: &str) -> Option<ParamMap> {
     let mut params = ParamMap::new();
 
     for (r_seg, req_seg) in route_segments.iter().zip(req_segments.iter()) {
-        if r_seg.starts_with(':') {
-            params.insert(r_seg[1..].to_string(), req_seg.to_string());
+        if let Some(part) = r_seg.strip_prefix(':') {
+            params.insert(part.to_string(), req_seg.to_string());
         } else if r_seg != req_seg {
             return None;
         }

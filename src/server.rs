@@ -1,40 +1,38 @@
-use tokio::net::TcpListener;
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
 
 use crate::route::Router;
-use crate::types::{Request, Response, Method, Version, HeaderMap, ParamMap};
+use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
 
 /// Server that wraps the whole HTTP server in itself.
 pub struct Server {
-    addr: String,
+    addr: &'static str,
     router: Router,
 }
 
 impl Server {
     /// Returns a new Server struct.
     /// Requires an address and router.
-    /// 
+    ///
     /// # Example:
     /// ```
     /// use zep::{Router, Server};
-    /// 
+    ///
     /// let mut router = Router::new();
     /// let server = Server::new("0.0.0.0:8080", router);
     /// ```
-    pub fn new(addr: &str, router: Router) -> Self {
-        Server {
-            addr: addr.to_string(),
-            router,
-        }
+    pub fn new(addr: &'static str, router: Router) -> Self {
+        Server { addr, router }
     }
 
     /// Starts listening and handling requests on the address we defined in new().
     /// Returns an std::io::Result enum if there was an error.
-    /// 
+    ///
     /// # Example:
     /// ```no_run
     /// use zep::{tokio, Router, Server};
-    /// 
+    ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut router = Router::new();
@@ -52,18 +50,19 @@ impl Server {
 
             tokio::spawn(async move {
                 if let Some(req) = parse_request(&mut socket, remote_addr).await {
-                    let resp = router.handle(req).await;
+                    let resp = router.handle_request(req).await;
                     let resp_bytes = serialize_response(resp);
                     let _ = socket.write_all(&resp_bytes).await;
                 }
-
-                
             });
         }
     }
 }
 
-async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net::SocketAddr) -> Option<Request> {
+async fn parse_request(
+    socket: &mut tokio::net::TcpStream,
+    remote_addr: std::net::SocketAddr,
+) -> Option<Request> {
     let mut buffer = vec![0u8; 16384];
     let n = socket.read(&mut buffer).await.ok()?;
     if n == 0 {
@@ -75,8 +74,8 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
 
     let request_line = lines.next()?;
     let mut parts = request_line.split_whitespace();
-    let method = Method::from(parts.next()?); 
-    let path = parts.next()?.to_string();
+    let method = Method::from(parts.next()?);
+    let path = Arc::from(parts.next()?);
     let version = Version::from(parts.next()?);
 
     let mut headers = HeaderMap::new();
@@ -90,15 +89,22 @@ async fn parse_request(socket: &mut tokio::net::TcpStream, remote_addr: std::net
     }
 
     let mut body = Vec::new();
-    if let Some((_, value)) = headers.iter().find(|(k, _)| k.to_lowercase() == "content-length")
-        && let Ok(len) = value.parse::<usize>() {
-            let body_len = len.min(buffer.len() - n);
-            body.extend_from_slice(&buffer[n..n + body_len]);
-        }
+    if let Some((_, value)) = headers
+        .iter()
+        .find(|(k, _)| k.to_lowercase() == "content-length")
+        && let Ok(len) = value.parse::<usize>()
+    {
+        let body_len = len.min(buffer.len() - n);
+        body.extend_from_slice(&buffer[n..n + body_len]);
+    }
+    let body = Arc::from(body);
 
-    let remote_addr = remote_addr.to_string();
+    let remote_addr = Arc::from(remote_addr.to_string());
 
     let params = ParamMap::new();
+
+    let headers = Arc::from(headers);
+    let params = Arc::from(params);
 
     Some(Request {
         method,
@@ -123,4 +129,3 @@ fn serialize_response(resp: Response) -> Vec<u8> {
     response.extend(&resp.body);
     response
 }
-

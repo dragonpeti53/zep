@@ -1,5 +1,6 @@
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
 
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
@@ -13,7 +14,7 @@ pub enum Method {
     POST,
     PUT,
     DELETE,
-    Other(String)
+    Other(String),
 }
 
 impl From<&str> for Method {
@@ -23,7 +24,7 @@ impl From<&str> for Method {
             "POST" => Method::POST,
             "PUT" => Method::PUT,
             "DELETE" => Method::DELETE,
-            s => Method::Other(s.to_string())
+            s => Method::Other(s.to_string()),
         }
     }
 }
@@ -147,12 +148,12 @@ impl StatusCode {
 /// Contains request method, path, version, headers, body, remote_addr(ip address of client), and parameters.
 pub struct Request {
     pub method: Method,
-    pub path: String,
+    pub path: Arc<str>,
     pub version: Version,
-    pub headers: HeaderMap,
-    pub body: Vec<u8>,
-    pub remote_addr: String,
-    pub params: ParamMap,
+    pub headers: Arc<HeaderMap>,
+    pub body: Arc<[u8]>,
+    pub remote_addr: Arc<str>,
+    pub params: Arc<ParamMap>,
 }
 
 /// Deserialized HTTP response in the form of a struct for easy handling in code.

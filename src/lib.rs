@@ -1,10 +1,10 @@
 //! Zep is an async HTTP crate focusing on minimalism and performance.
 //! I made it out of frustration with mainstream HTTP crates, I found that they were too bloated for simple use cases.
-//! 
+//!
 //! # Example
-//! 
+//!
 //! Return a 200 OK response with content "Hello world!" at "GET / ".
-//! 
+//!
 //! ```no_run
 //! use zep::{tokio, Router, Request, Response, Server, Method};
 //!
@@ -21,18 +21,18 @@
 //!     let _ = server.run().await;
 //! }
 //! ```
-//! 
-//! 
+//!
+//!
 
-mod types;
 mod route;
+pub mod serve;
 mod server;
 mod tests;
-pub mod serve;
+mod types;
 
-pub use types::{Request, Response, Method, Version, StatusCode, HeaderMap, ParamMap};
-pub use route::{Router, Handler};
+pub use route::{Handler, Router};
 pub use server::Server;
 /// Re-exporting tokio for user convenience.
 pub use tokio;
+pub use types::{HeaderMap, Method, ParamMap, Request, Response, StatusCode, Version};
 //pub use serve;
