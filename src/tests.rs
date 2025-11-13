@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::sync::Arc;
     async fn root(_req: Request) -> Response {
         Response::ok("true")
     }
@@ -35,7 +34,7 @@ mod tests {
             version: Version::Other,
             headers: HeaderMap::new(),
             body: Vec::new(),
-            remote_addr: Arc::from("0.0.0.0:8080"),
+            remote_addr: "0.0.0.0:8080".to_string(),
             params: ParamMap::new(),
         };
 
@@ -61,7 +60,7 @@ mod tests {
             version: Version::Other,
             headers: HeaderMap::new(),
             body: Vec::new(),
-            remote_addr: Arc::from("0.0.0.0:8080"),
+            remote_addr: "0.0.0.0:8080".to_string(),
             params: ParamMap::new(),
         };
 
@@ -87,7 +86,7 @@ mod tests {
             version: Version::Other,
             headers: HeaderMap::new(),
             body: Vec::new(),
-            remote_addr: Arc::from("0.0.0.0:8080"),
+            remote_addr: "0.0.0.0:8080".to_string(),
             params: ParamMap::new(),
         };
 

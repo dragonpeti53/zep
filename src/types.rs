@@ -148,11 +148,11 @@ impl StatusCode {
 /// Contains request method, path, version, headers, body, remote_addr(ip address of client), and parameters.
 pub struct Request {
     pub method: Method,
-    pub path: Arc<str>,
+    pub path: String,
     pub version: Version,
     pub headers: HeaderMap,
     pub body: Vec<u8>,
-    pub remote_addr: Arc<str>,
+    pub remote_addr: String,
     pub params: ParamMap,
 }
 

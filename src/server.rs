@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -75,7 +74,7 @@ async fn parse_request(
     let request_line = lines.next()?;
     let mut parts = request_line.split_whitespace();
     let method = Method::from(parts.next()?);
-    let path = Arc::from(parts.next()?);
+    let path = parts.next()?.to_string();
     let version = Version::from(parts.next()?);
 
     let mut headers = HeaderMap::new();
@@ -98,7 +97,7 @@ async fn parse_request(
         body.extend_from_slice(&buffer[n..n + body_len]);
     }
 
-    let remote_addr = Arc::from(remote_addr.to_string());
+    let remote_addr = remote_addr.to_string();
 
     let params = ParamMap::new();
 
