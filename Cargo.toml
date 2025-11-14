@@ -7,7 +7,7 @@ description = "A minimal, super simple, async HTTP library in Rust"
 license = "MIT"
 repository = "https://github.com/dragonpeti53/zep"
 keywords = ["http", "server", "async", "api"]
-categories = ["network-programming", "asynchronous", "web programming"]
+categories = ["network-programming", "asynchronous", "web-programming"]
 readme = "readme.md"
 
 [dependencies]
