@@ -39,7 +39,8 @@ mod tests {
         let expected = Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: "true".into(),
+            body: Some("true".into()),
+            stream: None,
         };
 
         assert_eq!(result, expected);
@@ -61,7 +62,8 @@ mod tests {
         let expected = Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: "12".into(),
+            body: Some("12".into()),
+            stream: None,
         };
 
         assert_eq!(result, expected);
@@ -83,7 +85,8 @@ mod tests {
         let expected = Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: "1234".into(),
+            body: Some("1234".into()),
+            stream: None,
         };
 
         assert_eq!(result, expected);

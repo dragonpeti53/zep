@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use crate::server::StreamReader;
+use crate::server::{StreamReader, StreamWriter};
 
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
@@ -160,11 +160,34 @@ pub struct Request {
 
 /// Deserialized HTTP response in the form of a struct for easy handling in code.
 /// Contains status_code(status code), headers and body.
-#[derive(PartialEq, Debug)]
 pub struct Response {
     pub status_code: StatusCode,
     pub headers: HeaderMap,
-    pub body: Vec<u8>,
+    pub body: Option<Vec<u8>>,
+    pub stream: Option<StreamWriter>,
+}
+
+impl PartialEq for Response {
+    fn eq(&self, other: &Self) -> bool {
+        if self.status_code == other.status_code {
+            if self.headers == other.headers {
+                if self.body == other.body {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+impl std::fmt::Debug for Response {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Response")
+            .field("status", &self.status_code)
+            .field("headers", &self.headers)
+            .field("body", &self.body)
+            .finish()
+    }
 }
 
 impl Response {
@@ -174,7 +197,8 @@ impl Response {
         Response {
             status_code,
             headers,
-            body: body.into(),
+            body: Some(body.into()),
+            stream: None,
         }
     }
 
@@ -184,7 +208,8 @@ impl Response {
         Response {
             status_code: StatusCode::Ok,
             headers: HeaderMap::new(),
-            body: body.into(),
+            body: Some(body.into()),
+            stream: None,
         }
     }
 
@@ -193,7 +218,8 @@ impl Response {
         Response {
             status_code: StatusCode::NotFound,
             headers: HeaderMap::new(),
-            body: b"404 Not Found".to_vec(),
+            body: Some(b"404 Not Found".to_vec()),
+            stream: None,
         }
     }
 
@@ -202,7 +228,8 @@ impl Response {
         Response {
             status_code: StatusCode::InternalServerError,
             headers: HeaderMap::new(),
-            body: "".into(),
+            body: Some("".into()),
+            stream: None,
         }
     }
 
@@ -211,6 +238,20 @@ impl Response {
     pub fn header(mut self, key: &str, value: &str) -> Self {
         self.headers.insert(key.to_string(), value.to_string());
         self
+    }
+
+    pub fn stream(status_code: StatusCode, stream: StreamWriter) -> Self {
+        Response {
+            status_code,
+            headers: {
+                let mut headermap = HeaderMap::new();
+                let _ = headermap.insert("Transfer-Encoding".to_string(), "chunked".to_string());
+                headermap
+            },
+            body: None,
+            stream: Some(stream),
+        }
+        
     }
 }
 
