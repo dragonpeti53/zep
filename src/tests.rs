@@ -31,11 +31,7 @@ mod tests {
         let req = Request {
             method: Method::GET,
             path: "/".to_string().into(),
-            version: Version::Other,
-            headers: HeaderMap::new(),
-            body: Vec::new(),
-            remote_addr: "0.0.0.0:8080".to_string(),
-            params: ParamMap::new(),
+            ..Default::default()
         };
 
         let result = router.handle_request(req).await;
@@ -57,11 +53,7 @@ mod tests {
         let req = Request {
             method: Method::GET,
             path: "/12".to_string().into(),
-            version: Version::Other,
-            headers: HeaderMap::new(),
-            body: Vec::new(),
-            remote_addr: "0.0.0.0:8080".to_string(),
-            params: ParamMap::new(),
+            ..Default::default()
         };
 
         let result = router.handle_request(req).await;
@@ -83,11 +75,7 @@ mod tests {
         let req = Request {
             method: Method::GET,
             path: "/12/34".to_string().into(),
-            version: Version::Other,
-            headers: HeaderMap::new(),
-            body: Vec::new(),
-            remote_addr: "0.0.0.0:8080".to_string(),
-            params: ParamMap::new(),
+            ..Default::default()
         };
 
         let result = router.handle_request(req).await;

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use crate::server::StreamReader;
 
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
@@ -151,9 +152,10 @@ pub struct Request {
     pub path: String,
     pub version: Version,
     pub headers: HeaderMap,
-    pub body: Vec<u8>,
+    pub body: Option<Vec<u8>>,
     pub remote_addr: String,
     pub params: ParamMap,
+    pub stream: Option<StreamReader>,
 }
 
 /// Deserialized HTTP response in the form of a struct for easy handling in code.
@@ -209,5 +211,20 @@ impl Response {
     pub fn header(mut self, key: &str, value: &str) -> Self {
         self.headers.insert(key.to_string(), value.to_string());
         self
+    }
+}
+
+impl Default for Request {
+    fn default() -> Self {
+        Request {
+            method: Method::GET,
+            path: "".into(),
+            version: Version::Http10,
+            headers: HeaderMap::new(),
+            body: None,
+            remote_addr: "".into(),
+            params: ParamMap::new(),
+            stream: None,
+        }
     }
 }

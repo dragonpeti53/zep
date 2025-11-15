@@ -1,6 +1,9 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncRead, ReadBuf};
 use tokio::net::TcpListener;
 use std::sync::Arc;
+use std::pin::Pin;
+use bytes::BytesMut;
+use std::task::{Context, Poll};
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
 
@@ -44,14 +47,15 @@ impl Server {
         println!("Server running on {}", &self.addr);
 
         loop {
-            let (mut socket, remote_addr) = listener.accept().await?;
+            let (socket, remote_addr) = listener.accept().await?;
             let router = self.router.clone();
+            let (read, mut write) = socket.into_split();
 
             tokio::spawn(async move {
-                if let Some(req) = parse_request(&mut socket, remote_addr).await {
+                if let Some(req) = parse_request(remote_addr, read).await {
                     let resp = router.handle_request(req).await;
                     let resp_bytes = serialize_response(resp);
-                    let _ = socket.write_all(&resp_bytes).await;
+                    let _ = write.write_all(&resp_bytes).await;
                 }
             });
         }
@@ -59,17 +63,18 @@ impl Server {
 }
 
 async fn parse_request(
-    socket: &mut tokio::net::TcpStream,
     remote_addr: std::net::SocketAddr,
+    mut reader: tokio::net::tcp::OwnedReadHalf,
 ) -> Option<Request> {
-    let mut buffer = vec![0u8; 16384];
-    let n = socket.read(&mut buffer).await.ok()?;
-    if n == 0 {
-        return None;
-    }
+    let mut buffer = BytesMut::with_capacity(16384);
+    let n = reader.read_buf(&mut buffer).await.ok()?;
+    if n == 0 { return None; }
 
-    let req_text = std::str::from_utf8(&buffer[..n]).ok()?;
-    let mut lines = req_text.lines();
+    let headers_end = find_headers_end(&buffer)?;
+    let header_bytes = &buffer[..headers_end];
+
+    let header_str = std::str::from_utf8(header_bytes).ok()?;
+    let mut lines = header_str.lines();
 
     let request_line = lines.next()?;
     let mut parts = request_line.split_whitespace();
@@ -87,19 +92,66 @@ async fn parse_request(
         }
     }
 
-    let mut body = Vec::new();
-    if let Some((_, value)) = headers
-        .iter()
-        .find(|(k, _)| k.to_lowercase() == "content-length")
-        && let Ok(len) = value.parse::<usize>()
-    {
-        let body_len = len.min(buffer.len() - n);
-        body.extend_from_slice(&buffer[n..n + body_len]);
-    }
-
     let remote_addr = remote_addr.to_string();
 
     let params = ParamMap::new();
+
+    let leftover = buffer.split_off(headers_end + 4);
+
+    let is_chunked = headers.iter().any(|(k, v)| {
+        k.eq_ignore_ascii_case("transfer-encoding") &&
+        v.split(',').any(|s| s.trim().eq_ignore_ascii_case("chunked"))
+    });
+
+    /*let body = if !is_chunked {
+        if let Some((_, value)) =
+            headers.iter().find(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+        {
+            if let Ok(len) = value.parse::<usize>() {
+                let mut body = Vec::with_capacity(len);
+                let already = leftover.len();
+                let use_from_leftover = std::cmp::min(len, already);
+                if use_from_leftover > 0 {
+                    body.extend_from_slice(&leftover[..use_from_leftover]);
+                }
+                let to_read = len.saturating_sub(body.len());
+                if to_read > 0 {
+                    let mut tmp = vec![0u8; to_read];
+                    // remaining bytes come from the reader
+                    reader.read_exact(&mut tmp).await.ok()?;
+                    body.extend_from_slice(&tmp);
+                }
+                Some(body)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };*/
+
+    let stream = if is_chunked {
+        Some(StreamReader::new(leftover, reader))
+    } else {
+        None
+    };
+
+    let body = {
+        if let Some((_, value)) = headers
+            .iter()
+            .find(|(k, _)| k.to_lowercase() == "content-length")
+            && let Ok(len) = value.parse::<usize>()
+        {
+            let mut body = Vec::new();
+            let body_len = len.min(buffer.len() - n);
+            body.extend_from_slice(&buffer[n..n + body_len]);
+            Some(body)
+        } else { None }
+    };
+
+    
 
     Some(Request {
         method,
@@ -109,6 +161,7 @@ async fn parse_request(
         body,
         remote_addr,
         params,
+        stream,
     })
 }
 
@@ -123,4 +176,39 @@ fn serialize_response(resp: Response) -> Vec<u8> {
     response.extend(b"\r\n");
     response.extend(&resp.body);
     response
+}
+
+fn find_headers_end(buf: &BytesMut) -> Option<usize> {
+    memchr::memmem::find(buf, b"\r\n\r\n")
+}
+
+///used for streamed file reading
+pub struct StreamReader {
+    leftover: BytesMut,
+    pos: usize,
+    reader: tokio::net::tcp::OwnedReadHalf,
+}
+
+impl StreamReader {
+    pub(crate) fn new(leftover: BytesMut, reader: tokio::net::tcp::OwnedReadHalf) -> Self {
+        StreamReader { leftover, pos: 0, reader }
+    }
+}
+
+impl AsyncRead for StreamReader {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        if self.pos < self.leftover.len() {
+            let rem = &self.leftover[self.pos..];
+            let take = std::cmp::min(rem.len(), buf.remaining());
+            buf.put_slice(&rem[..take]);
+            self.pos = take;
+            return Poll::Ready(Ok(()));
+        }
+
+        Pin::new(&mut self.reader).poll_read(cx, buf)
+    }
 }
