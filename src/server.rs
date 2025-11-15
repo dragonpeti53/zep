@@ -55,18 +55,24 @@ impl Server {
                 if let Some(req) = parse_request(remote_addr, read).await {
                     let resp = router.handle_request(req).await;
                     let resp_bytes = serialize_response(&resp);
+                    let _ = write.write_all(&resp_bytes).await;
                     if let Some(mut stream) = resp.stream {
                         while let Some(chunk) = stream.next_chunk().await {
                             match write.write_all(&chunk).await {
                                 Ok(_) => { continue; },
                                 Err(e) => {
-                                    eprintln!("Error writing chunk: {:?}", e);
-                                    break;
+                                    if e.kind() == std::io::ErrorKind::ConnectionReset
+                                        || e.kind() == std::io::ErrorKind::BrokenPipe 
+                                    {
+                                        break;
+                                    } else {
+                                        eprintln!("Error writing chunk: {:?}", e);
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
-                    let _ = write.write_all(&resp_bytes).await;
                 }
             });
         }
@@ -181,11 +187,11 @@ fn serialize_response(resp: &Response) -> Vec<u8> {
     for (key, value) in &resp.headers {
         response.extend(format!("{}: {}\r\n", key, value).as_bytes());
     }
+    response.extend(b"\r\n");
     if let Some(body) = &resp.body {
         if !resp.headers.contains_key("Content-Length") {
             response.extend(format!("Content-Length: {}\r\n", body.len()).as_bytes());
         }
-        response.extend(b"\r\n");
         response.extend(body);
     }
     response

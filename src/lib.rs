@@ -31,7 +31,7 @@ mod tests;
 mod types;
 
 pub use route::{Handler, Router};
-pub use server::{Server, StreamReader};
+pub use server::{Server, StreamReader, StreamWriter};
 /// Re-exporting tokio for user convenience.
 pub use tokio;
 pub use types::{HeaderMap, Method, ParamMap, Request, Response, StatusCode, Version};
