@@ -169,13 +169,11 @@ pub struct Response {
 
 impl PartialEq for Response {
     fn eq(&self, other: &Self) -> bool {
-        if self.status_code == other.status_code {
-            if self.headers == other.headers {
-                if self.body == other.body {
+        if self.status_code == other.status_code
+            && self.headers == other.headers
+                && self.body == other.body {
                     return true;
                 }
-            }
-        }
         false
     }
 }
