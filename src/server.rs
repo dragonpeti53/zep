@@ -1,13 +1,13 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-
+use std::sync::Arc;
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
 
 /// Server that wraps the whole HTTP server in itself.
 pub struct Server {
     addr: &'static str,
-    router: Router,
+    router: Arc<Router>,
 }
 
 impl Server {
@@ -22,7 +22,7 @@ impl Server {
     /// let server = Server::new("0.0.0.0:8080", router);
     /// ```
     pub fn new(addr: &'static str, router: Router) -> Self {
-        Server { addr, router }
+        Server { addr, router: Arc::from(router) }
     }
 
     /// Starts listening and handling requests on the address we defined in new().
