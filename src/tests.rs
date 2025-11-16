@@ -7,9 +7,9 @@ mod tests {
 
     async fn paramtest(req: Request) -> Response {
         Response::ok(if let Some(id) = req.params.get("id") {
-            id
+            id.to_string()
         } else {
-            "error"
+            "error".to_string()
         })
     }
 
@@ -38,7 +38,7 @@ mod tests {
 
         let expected = Response {
             status_code: StatusCode::Ok,
-            headers: HeaderMap::new(),
+            headers: None,
             body: Some("true".into()),
             stream: None,
         };
@@ -61,7 +61,7 @@ mod tests {
 
         let expected = Response {
             status_code: StatusCode::Ok,
-            headers: HeaderMap::new(),
+            headers: None,
             body: Some("12".into()),
             stream: None,
         };
@@ -84,7 +84,7 @@ mod tests {
 
         let expected = Response {
             status_code: StatusCode::Ok,
-            headers: HeaderMap::new(),
+            headers: None,
             body: Some("1234".into()),
             stream: None,
         };

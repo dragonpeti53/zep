@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use crate::server::{StreamReader, StreamWriter};
+use bytes::Bytes;
 
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
@@ -162,8 +163,8 @@ pub struct Request {
 /// Contains status_code(status code), headers and body.
 pub struct Response {
     pub status_code: StatusCode,
-    pub headers: HeaderMap,
-    pub body: Option<Vec<u8>>,
+    pub headers: Option<HeaderMap>,
+    pub body: Option<Bytes>,
     pub stream: Option<StreamWriter>,
 }
 
@@ -191,21 +192,25 @@ impl std::fmt::Debug for Response {
 impl Response {
     /// Returns a new response.
     /// Requires a StatusCode, HeaderMap and generic body.
-    pub fn new<B: Into<Vec<u8>>>(status_code: StatusCode, headers: HeaderMap, body: B) -> Self {
+    pub fn new<B: Into<Bytes>>(status_code: StatusCode, headers: Option<HeaderMap>, body: Option<B>) -> Self {
         Response {
             status_code,
             headers,
-            body: Some(body.into()),
+            body: if let Some(body) = body {
+                Some(body.into())
+            } else {
+                None
+            },
             stream: None,
         }
     }
 
     /// Helper function to conveniently return a 200 OK response with no headers.
     /// Requires generic body.
-    pub fn ok<B: Into<Vec<u8>>>(body: B) -> Self {
+    pub fn ok<B: Into<Bytes>>(body: B) -> Self {
         Response {
             status_code: StatusCode::Ok,
-            headers: HeaderMap::new(),
+            headers: None,
             body: Some(body.into()),
             stream: None,
         }
@@ -215,8 +220,8 @@ impl Response {
     pub fn not_found() -> Self {
         Response {
             status_code: StatusCode::NotFound,
-            headers: HeaderMap::new(),
-            body: Some(b"404 Not Found".to_vec()),
+            headers: None,
+            body: Some("404 Not Found".into()),
             stream: None,
         }
     }
@@ -225,8 +230,8 @@ impl Response {
     pub fn error() -> Self {
         Response {
             status_code: StatusCode::InternalServerError,
-            headers: HeaderMap::new(),
-            body: Some("".into()),
+            headers: None,
+            body: None,
             stream: None,
         }
     }
@@ -234,7 +239,15 @@ impl Response {
     /// Appends a header to a response's headermap.
     /// Requires a key and value.
     pub fn header(mut self, key: &str, value: &str) -> Self {
-        self.headers.insert(key.to_string(), value.to_string());
+        if let Some(ref mut headers) = self.headers {
+            headers.insert(key.to_string(), value.to_string());
+        } else {
+            *&mut self.headers = Some({
+                let mut headers = HeaderMap::new();
+                headers.insert(key.to_string(), value.to_string());
+                headers
+            });
+        }
         self
     }
 
@@ -244,7 +257,7 @@ impl Response {
             headers: {
                 let mut headermap = HeaderMap::new();
                 let _ = headermap.insert("Transfer-Encoding".to_string(), "chunked".to_string());
-                headermap
+                Some(headermap)
             },
             body: None,
             stream: Some(stream),
