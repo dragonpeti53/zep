@@ -11,6 +11,7 @@ categories = ["network-programming", "asynchronous", "web-programming"]
 readme = "readme.md"
 
 [dependencies]
+anyhow = "1.0.100"
 bytes = "1.11.0"
 memchr = "2.7.6"
 tokio = { version = "1", features = ["full"] }

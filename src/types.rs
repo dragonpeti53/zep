@@ -262,7 +262,7 @@ impl Response {
         if let Some(ref mut headers) = self.headers {
             headers.insert(key.to_string(), value.to_string());
         } else {
-            *&mut self.headers = Some({
+            self.headers = Some({
                 let mut headers = HeaderMap::new();
                 headers.insert(key.to_string(), value.to_string());
                 headers

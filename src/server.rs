@@ -1,11 +1,13 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncRead, ReadBuf, BufReader, AsyncBufReadExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::pin::Pin;
 use bytes::{BytesMut};
-use std::task::{Context, Poll};
+use std::task::{Poll};
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
+use anyhow::{Result, Context};
 
 /// Server that wraps the whole HTTP server in itself.
 pub struct Server {
@@ -47,34 +49,11 @@ impl Server {
         println!("Server running on {}", &self.addr);
 
         loop {
-            let (socket, remote_addr) = match listener.accept().await {
-                Ok(value) => value,
-                Err(e) => {
-                    eprintln!("Error while accepting connection: {}", e);
-                    continue;
-                }
-            };
+            let (socket, remote_addr) = listener.accept().await?;
             let router = self.router.clone();
-            let (read, mut write) = socket.into_split();
-
             tokio::spawn(async move {
-                if let Err(e) = async {
-                    let req = parse_request(remote_addr, read).await?;
-
-                    let resp = router.handle_request(req).await;
-                    let resp_bytes = serialize_response(&resp);
-                    write.write_all(&resp_bytes).await?;
-
-                    if let Some(stream) = resp.stream {
-                        stream_resp(write, stream).await?;
-                    } else {
-                        write.shutdown().await?;
-                    }
-
-                    Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
-                }
-                .await {
-                    eprintln!("Error, conn: {}, err: {}", remote_addr, e);
+                if let Err(e) = handle_conn(socket, remote_addr, router).await {
+                    eprintln!("error, conn: {}, err: {:?}", remote_addr, e);
                 }
             });
         }
@@ -84,34 +63,34 @@ impl Server {
 async fn parse_request(
     remote_addr: std::net::SocketAddr,
     mut reader: tokio::net::tcp::OwnedReadHalf,
-) -> Result<Request, ParsingError> {
+) -> Result<Request> {
     let mut buffer = BytesMut::with_capacity(16_384);
 
     let n = reader.read_buf(&mut buffer).await?;
-    if n == 0 { return Err(ParsingError::InvalidRequest("Connection closed while parsing request")) }
+    if n == 0 { anyhow::bail!("Connection closed while parsing request"); }
 
     let headers_end = find_headers_end(&buffer)
-        .ok_or(ParsingError::InvalidRequest("Invalid headers"))?;
+        .context("Invalid headers")?;
     
     let header_bytes = &buffer[..headers_end];
     let header_str = std::str::from_utf8(header_bytes)?;
 
     let mut lines = header_str.lines();
     let request_line = lines.next()
-        .ok_or(ParsingError::InvalidRequest("Empty request line"))?;
+        .context("Empty request line")?;
 
     let mut parts = request_line.split_whitespace();
 
     let method = Method::from(
         parts.next()
-            .ok_or(ParsingError::InvalidRequest("Missing method"))?
+            .context("Missing method")?
     );
     let path = parts.next()
-        .ok_or(ParsingError::InvalidRequest("Missing path"))?
+        .context("Missing path")?
         .to_string();
     let version = Version::from(
         parts.next()
-            .ok_or(ParsingError::InvalidRequest("Missing version"))?
+            .context("Missing version")?
     );
 
     let mut headers = HeaderMap::new();
@@ -166,6 +145,24 @@ async fn parse_request(
     })
 }
 
+async fn handle_conn(socket: TcpStream, remote_addr: SocketAddr, router: Arc<Router>) -> anyhow::Result<()> {
+    let (read, mut write) = socket.into_split();
+
+    let req = parse_request(remote_addr, read).await?;
+
+    let resp = router.handle_request(req).await;
+    let resp_bytes = serialize_response(&resp);
+    write.write_all(&resp_bytes).await?;
+
+    if let Some(stream) = resp.stream {
+        stream_resp(&mut write, stream).await?;
+    }
+    
+    write.shutdown().await?;
+    
+    Ok(())
+}
+
 fn serialize_response(resp: &Response) -> Vec<u8> {
     let mut response = format!("HTTP/1.1 {}\r\n", resp.status_code).into_bytes();
     if let Some(headers) = &resp.headers {
@@ -187,7 +184,7 @@ fn find_headers_end(buf: &BytesMut) -> Option<usize> {
     memchr::memmem::find(buf, b"\r\n\r\n")
 }
 
-async fn stream_resp(mut write: tokio::net::tcp::OwnedWriteHalf, mut stream: StreamWriter)
+async fn stream_resp(write: &mut tokio::net::tcp::OwnedWriteHalf, mut stream: StreamWriter)
 -> std::io::Result<()> {
     while let Some(chunk) = stream.next_chunk().await {
         if let Err(e) = write.write_all(&chunk).await {
@@ -200,7 +197,6 @@ async fn stream_resp(mut write: tokio::net::tcp::OwnedWriteHalf, mut stream: Str
             }
         }
     }
-    let _ = write.shutdown().await;
     Ok(())
 }
 
@@ -270,7 +266,7 @@ impl StreamReader {
 impl AsyncRead for StreamReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        cx: &mut std::task::Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
         if self.pos < self.leftover.len() {
@@ -320,45 +316,6 @@ impl StreamWriter {
                 Some(chunk)
             }
             Err(_) => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-enum ParsingError {
-    Io(std::io::Error),
-    Utf8(std::str::Utf8Error),
-    InvalidRequest(&'static str),
-}
-
-impl From<std::io::Error> for ParsingError {
-    fn from(e: std::io::Error) -> Self {
-        ParsingError::Io(e)
-    }
-}
-
-impl From<std::str::Utf8Error> for ParsingError {
-    fn from(e: std::str::Utf8Error) -> Self {
-        ParsingError::Utf8(e)
-    }
-}
-
-impl std::fmt::Display for ParsingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParsingError::Io(e) => write!(f, "IO error: {}", e),
-            ParsingError::Utf8(e) => write!(f, "UTF8 error: {}", e),
-            ParsingError::InvalidRequest(msg) => write!(f, "Invalid request: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for ParsingError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ParsingError::Io(e) => Some(e),
-            ParsingError::Utf8(e) => Some(e),
-            ParsingError::InvalidRequest(_) => None,
         }
     }
 }
