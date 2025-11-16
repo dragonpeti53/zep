@@ -8,6 +8,10 @@ use std::io;
 /// Returns a 200 OK response with the contents of file located at `path`.
 /// Returns a 500 Internal Server Error response if file could not be read or found.
 /// Returns a 404 Not Found response if file at `path` does not exist.
+#[deprecated(
+    since = "0.3.0",
+    note = "Use [`save_streamed_file`] instead"
+)]
 pub async fn file(path: &str) -> Response {
     match fs::try_exists(path).await {
         Ok(true) => match fs::read(path).await {
@@ -19,12 +23,11 @@ pub async fn file(path: &str) -> Response {
     }
 }
 
+/// Saves an incoming stream to a file.
 pub async fn save_streamed_file(
-    //reader: &mut StreamReader,
     mut reader: StreamReader,
     path: &str
 ) -> std::io::Result<()> {
-    //let mut buf_reader = BufReader::new(reader);
     let mut buf_reader = BufReader::new(&mut reader);
     let mut file = tokio::fs::File::create(path).await?;
 

@@ -44,8 +44,8 @@ impl fmt::Display for Method {
 }
 
 impl Method {
-    /// Converts a `method` to its text representation in a &str type.
-    pub fn to_str(&self) -> &str {
+    /*/// Converts a `method` to its text representation in a &str type.*/
+    fn _to_str(&self) -> &str {
         match self {
             Method::GET => "GET",
             Method::POST => "POST",
@@ -91,8 +91,8 @@ impl fmt::Display for Version {
 }
 
 impl Version {
-    /// Converts a `Version` to its text representation in a &str type.
-    pub fn to_str(&self) -> &str {
+    /*/// Converts a `Version` to its text representation in a &str type.*/
+    fn _to_str(&self) -> &str {
         match self {
             Version::Http10 => "HTTP/1.0",
             Version::Http11 => "HTTP/1.1",
@@ -209,6 +209,7 @@ impl Response {
         }
     }*/
 
+    /// Returns a new Response with given StatusCode.
     pub fn new(status_code: StatusCode) -> Self {
         Response {
             status_code,
@@ -218,6 +219,7 @@ impl Response {
         }
     }
 
+    /// Adds a body to a response.
     pub fn body(&mut self, body: impl Into<Bytes>) {
         self.body = Some(body.into())
     }
@@ -271,11 +273,13 @@ impl Response {
         self
     }
 
+    /// Adds given headermap to a Response.
     pub fn headermap(mut self, headers: HeaderMap) -> Self {
         self.headers = Some(headers);
         self
     }
 
+    /// Returns a response with given StreamWriter. Used for streaming.
     pub fn stream(status_code: StatusCode, stream: StreamWriter) -> Self {
         Response {
             status_code,

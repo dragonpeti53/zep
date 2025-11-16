@@ -212,6 +212,7 @@ impl StreamReader {
         StreamReader { leftover, pos: 0, bufreader: BufReader::new(reader) }
     }
 
+    /// Returns next chunk from incoming stream.
     pub async fn next_chunk<B: AsMut<[u8]>>(&mut self) -> std::io::Result<Option<Vec<u8>>> { 
         let mut size_line = String::new();
         let n = self.bufreader.read_line(&mut size_line).await?;
@@ -281,11 +282,14 @@ impl AsyncRead for StreamReader {
     }
 }
 
+/// Used for responding with streams.
 pub struct StreamWriter {
     reader: BufReader<Box<dyn AsyncRead + Unpin + Send>>,
 }
 
 impl StreamWriter {
+    /// Returns a new StreamWriter with passed in stream.
+    /// Streams must implement `AsyncRead + Unpin + 'static + Send` traits.
     pub fn new<R>(stream: R) -> Self
     where
         R: AsyncRead + Unpin + 'static + Send,
@@ -295,7 +299,7 @@ impl StreamWriter {
         }
     }
 
-    pub async fn next_chunk(&mut self) -> Option<Vec<u8>> {
+    pub(crate) async fn next_chunk(&mut self) -> Option<Vec<u8>> {
         const MAX_CHUNK_SIZE: usize = 64 * 1024;
         let mut buf = vec![0u8; MAX_CHUNK_SIZE];
 
