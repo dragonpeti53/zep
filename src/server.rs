@@ -2,7 +2,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncRead, ReadBuf, BufReader, Asyn
 use tokio::net::TcpListener;
 use std::sync::Arc;
 use std::pin::Pin;
-use bytes::BytesMut;
+use bytes::{BytesMut};
 use std::task::{Context, Poll};
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
@@ -145,10 +145,10 @@ async fn parse_request(
             .find(|(k, _)| k.to_lowercase() == "content-length")
             && let Ok(len) = value.parse::<usize>()
         {
-            let mut body = Vec::new();
+            let mut body = BytesMut::new();
             let body_len = len.min(buffer.len() - n);
             body.extend_from_slice(&buffer[n..n + body_len]);
-            Some(body)
+            Some(body.freeze())
         } else { None }
     };
 

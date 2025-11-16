@@ -153,7 +153,7 @@ pub struct Request {
     pub path: String,
     pub version: Version,
     pub headers: HeaderMap,
-    pub body: Option<Vec<u8>>,
+    pub body: Option<Bytes>,
     pub remote_addr: String,
     pub params: ParamMap,
     pub stream: Option<StreamReader>,
@@ -190,9 +190,13 @@ impl std::fmt::Debug for Response {
 }
 
 impl Response {
+    /*
     /// Returns a new response.
     /// Requires a StatusCode, HeaderMap and generic body.
-    pub fn new<B: Into<Bytes>>(status_code: StatusCode, headers: Option<HeaderMap>, body: Option<B>) -> Self {
+    pub fn new<B>(status_code: StatusCode, headers: Option<HeaderMap>, body: Option<B>) -> Self
+    where
+        B: Into<Bytes>
+    {
         Response {
             status_code,
             headers,
@@ -203,11 +207,27 @@ impl Response {
             },
             stream: None,
         }
+    }*/
+
+    pub fn new(status_code: StatusCode) -> Self {
+        Response {
+            status_code,
+            headers: None,
+            body: None,
+            stream: None,
+        }
+    }
+
+    pub fn body(&mut self, body: impl Into<Bytes>) {
+        self.body = Some(body.into())
     }
 
     /// Helper function to conveniently return a 200 OK response with no headers.
     /// Requires generic body.
-    pub fn ok<B: Into<Bytes>>(body: B) -> Self {
+    pub fn ok<B>(body: B) -> Self
+    where
+        B: Into<Bytes>
+    {
         Response {
             status_code: StatusCode::Ok,
             headers: None,
@@ -248,6 +268,11 @@ impl Response {
                 headers
             });
         }
+        self
+    }
+
+    pub fn headermap(mut self, headers: HeaderMap) -> Self {
+        self.headers = Some(headers);
         self
     }
 
