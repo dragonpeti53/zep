@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 use crate::server::{StreamReader, StreamWriter};
-use bytes::Bytes;
 
 /// Type alias of `HashMap<String, String>` for convenience.
 pub type HeaderMap = HashMap<String, String>;
@@ -153,7 +152,7 @@ pub struct Request {
     pub path: String,
     pub version: Version,
     pub headers: HeaderMap,
-    pub body: Option<Bytes>,
+    pub body: Option<Vec<u8>>,
     pub remote_addr: String,
     pub params: ParamMap,
     pub stream: Option<StreamReader>,
@@ -164,7 +163,7 @@ pub struct Request {
 pub struct Response {
     pub status_code: StatusCode,
     pub headers: Option<HeaderMap>,
-    pub body: Option<Bytes>,
+    pub body: Option<Vec<u8>>,
     pub stream: Option<StreamWriter>,
 }
 
@@ -220,7 +219,7 @@ impl Response {
     }
 
     /// Adds a body to a response.
-    pub fn body(&mut self, body: impl Into<Bytes>) {
+    pub fn body(&mut self, body: impl Into<Vec<u8>>) {
         self.body = Some(body.into())
     }
 
@@ -228,7 +227,7 @@ impl Response {
     /// Requires generic body.
     pub fn ok<B>(body: B) -> Self
     where
-        B: Into<Bytes>
+        B: Into<Vec<u8>>
     {
         Response {
             status_code: StatusCode::Ok,

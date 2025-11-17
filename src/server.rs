@@ -3,7 +3,6 @@ use tokio::net::{TcpListener, TcpStream};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::pin::Pin;
-use bytes::{Bytes, BytesMut};
 use std::task::{Poll, Context};
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
@@ -64,7 +63,7 @@ async fn parse_request(
     remote_addr: std::net::SocketAddr,
     mut reader: tokio::net::tcp::OwnedReadHalf,
 ) -> std::io::Result<Request> {
-    let mut buffer = BytesMut::with_capacity(16_384);
+    let mut buffer = Vec::with_capacity(16_384);
 
     let n = reader.read_buf(&mut buffer).await?;
     if n == 0 { return Err(Error::new(ErrorKind::ConnectionReset, "Connection closed unexpectedly")) }
@@ -137,10 +136,10 @@ async fn parse_request(
             .find(|(k, _)| k.to_lowercase() == "content-length")
             && let Ok(len) = value.parse::<usize>()
         {
-            let mut body = BytesMut::new();
+            let mut body = Vec::new();
             let body_len = len.min(buffer.len() - n);
             body.extend_from_slice(&buffer[n..n + body_len]);
-            Some(body.freeze())
+            Some(body)
         } else { None }
     };
 
@@ -176,7 +175,7 @@ async fn handle_conn(socket: TcpStream, remote_addr: SocketAddr, router: Arc<Rou
     Ok(())
 }
 
-fn serialize_response(resp: &Response) -> Bytes {
+fn serialize_response(resp: &Response) -> Vec<u8> {
     let mut response = format!("HTTP/1.1 {}\r\n", resp.status_code).into_bytes();
     if let Some(headers) = &resp.headers {
         for (key, value) in headers {
@@ -193,8 +192,19 @@ fn serialize_response(resp: &Response) -> Bytes {
     response.into()
 }
 
-fn find_headers_end(buf: &BytesMut) -> Option<usize> {
-    memchr::memmem::find(buf, b"\r\n\r\n")
+fn find_headers_end(buf: &Vec<u8>) -> Option<usize> {
+    let needle = b"\r\n\r\n";
+    if buf.len() < needle.len() {
+        return None;
+    }
+
+    for i in 0..=buf.len() - needle.len() {
+        if &buf[i..i + needle.len()] == needle {
+            return Some(i + needle.len());
+        }
+    }
+
+    None
 }
 
 async fn stream_resp(write: &mut tokio::net::tcp::OwnedWriteHalf, mut stream: StreamWriter)
@@ -215,13 +225,13 @@ async fn stream_resp(write: &mut tokio::net::tcp::OwnedWriteHalf, mut stream: St
 
 ///used for streamed file reading
 pub struct StreamReader {
-    leftover: BytesMut,
+    leftover: Vec<u8>,
     pos: usize,
     bufreader: tokio::io::BufReader<tokio::net::tcp::OwnedReadHalf>,
 }
 
 impl StreamReader {
-    pub(crate) fn new(leftover: BytesMut, reader: tokio::net::tcp::OwnedReadHalf) -> Self {
+    pub(crate) fn new(leftover: Vec<u8>, reader: tokio::net::tcp::OwnedReadHalf) -> Self {
         StreamReader { leftover, pos: 0, bufreader: BufReader::new(reader) }
     }
 
