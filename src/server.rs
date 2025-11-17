@@ -117,18 +117,10 @@ async fn parse_request(
 
     let remote_addr = remote_addr.to_string();
     let params = ParamMap::new();
-    let leftover = buffer.split_off(headers_end);
-
     let is_chunked = headers.iter().any(|(k, v)| {
         k.eq_ignore_ascii_case("transfer-encoding") &&
         v.split(',').any(|s| s.trim().eq_ignore_ascii_case("chunked"))
     });
-
-    let stream = if is_chunked {
-        Some(StreamReader::new(leftover, reader))
-    } else {
-        None
-    };
 
     let body = {
         if let Some((_, value)) = headers
@@ -136,14 +128,27 @@ async fn parse_request(
             .find(|(k, _)| k.to_lowercase() == "content-length")
             && let Ok(len) = value.parse::<usize>()
         {
-            let mut body = Vec::new();
-            let body_len = len.min(buffer.len() - n);
-            body.extend_from_slice(&buffer[n..n + body_len]);
+            let mut body = Vec::with_capacity(len);
+            body.extend_from_slice(&buffer[headers_end..]);
+            while body.len() < len {
+                let read = reader.read_buf(&mut body).await?;
+                if read == 0 {
+                    return Err(Error::new(
+                    ErrorKind::UnexpectedEof,
+                    "Body truncated",
+                    ));
+                }
+            }
             Some(body)
         } else { None }
     };
 
-    
+    let stream = if is_chunked {
+        let leftover = buffer.split_off(headers_end);
+        Some(StreamReader::new(leftover, reader))
+    } else {
+        None
+    };
 
     Ok(Request {
         method,
@@ -189,10 +194,10 @@ fn serialize_response(resp: &Response) -> Vec<u8> {
             response.extend(body);
         }
     }
-    response.into()
+    response
 }
 
-fn find_headers_end(buf: &Vec<u8>) -> Option<usize> {
+fn find_headers_end(buf: &[u8]) -> Option<usize> {
     let needle = b"\r\n\r\n";
     if buf.len() < needle.len() {
         return None;
