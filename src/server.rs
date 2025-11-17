@@ -4,10 +4,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::pin::Pin;
 use bytes::{Bytes, BytesMut};
-use std::task::{Poll};
+use std::task::{Poll, Context};
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
-use anyhow::{Result, Context};
+use std::io::{Error, ErrorKind};
 
 /// Server that wraps the whole HTTP server in itself.
 pub struct Server {
@@ -63,34 +63,47 @@ impl Server {
 async fn parse_request(
     remote_addr: std::net::SocketAddr,
     mut reader: tokio::net::tcp::OwnedReadHalf,
-) -> Result<Request> {
+) -> std::io::Result<Request> {
     let mut buffer = BytesMut::with_capacity(16_384);
 
     let n = reader.read_buf(&mut buffer).await?;
-    if n == 0 { anyhow::bail!("Connection closed while parsing request"); }
+    if n == 0 { return Err(Error::new(ErrorKind::ConnectionReset, "Connection closed unexpectedly")) }
 
-    let headers_end = find_headers_end(&buffer)
-        .context("Invalid headers")?;
+    let headers_end = match find_headers_end(&buffer) {
+        Some(value) => value,
+        None => return Err(Error::new(ErrorKind::InvalidData, "Invalid headers")),
+    };
     
     let header_bytes = &buffer[..headers_end];
-    let header_str = std::str::from_utf8(header_bytes)?;
+    let header_str = match std::str::from_utf8(header_bytes) {
+        Ok(value) => value,
+        Err(_) => return Err(Error::new(ErrorKind::InvalidData, "UTF-8 error")),
+    };
 
     let mut lines = header_str.lines();
-    let request_line = lines.next()
-        .context("Empty request line")?;
+    let request_line = match lines.next() {
+        Some(line) => line,
+        None => return Err(Error::new(ErrorKind::InvalidData, "Missing request line")),
+    };
 
     let mut parts = request_line.split_whitespace();
 
     let method = Method::from(
-        parts.next()
-            .context("Missing method")?
+        match parts.next() {
+            Some(part) => part,
+            None => return Err(Error::new(ErrorKind::InvalidData, "Missing method")),
+        }
     );
-    let path = parts.next()
-        .context("Missing path")?
-        .to_string();
+    let path = match parts.next() {
+        Some(part) => part,
+        None => return Err(Error::new(ErrorKind::InvalidData, "Missing method")),
+    }
+    .to_string();
     let version = Version::from(
-        parts.next()
-            .context("Missing version")?
+        match parts.next() {
+            Some(part) => part,
+            None => return Err(Error::new(ErrorKind::InvalidData, "Missing version")),
+        }
     );
 
     let mut headers = HeaderMap::new();
@@ -145,7 +158,7 @@ async fn parse_request(
     })
 }
 
-async fn handle_conn(socket: TcpStream, remote_addr: SocketAddr, router: Arc<Router>) -> anyhow::Result<()> {
+async fn handle_conn(socket: TcpStream, remote_addr: SocketAddr, router: Arc<Router>) -> std::io::Result<()> {
     let (read, mut write) = socket.into_split();
 
     let req = parse_request(remote_addr, read).await?;
@@ -267,7 +280,7 @@ impl StreamReader {
 impl AsyncRead for StreamReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
         if self.pos < self.leftover.len() {
