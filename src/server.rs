@@ -111,13 +111,13 @@ async fn parse_request(
             break;
         }
         if let Some((key, value)) = line.split_once(": ") {
-            headers.insert(key.to_string(), value.to_string());
+            headers.insert(key.trim().to_string(), value.trim().to_string());
         }
     }
 
     let remote_addr = remote_addr.to_string();
     let params = ParamMap::new();
-    let leftover = buffer.split_off(headers_end + 4);
+    let leftover = buffer.split_off(headers_end);
 
     let is_chunked = headers.iter().any(|(k, v)| {
         k.eq_ignore_ascii_case("transfer-encoding") &&
