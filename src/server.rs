@@ -213,7 +213,7 @@ impl StreamReader {
     }
 
     /// Returns next chunk from incoming stream.
-    pub async fn next_chunk<B: AsMut<[u8]>>(&mut self) -> std::io::Result<Option<Vec<u8>>> { 
+    pub async fn next_chunk(&mut self) -> std::io::Result<Option<Vec<u8>>> { 
         let mut size_line = String::new();
         let n = self.bufreader.read_line(&mut size_line).await?;
         if n == 0 {

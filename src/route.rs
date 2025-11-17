@@ -50,16 +50,21 @@ impl Router {
 
     /// Appends a new route to a router struct.
     /// Requires a method, path and handler function.
+    /// Feature: can take route parameters: /:id, <- id would be the parameter, accessible in `Request.params`.
     /// # Example:
     /// ```
     /// use zep::{Router, Method, Request, Response};
     ///
-    /// async fn handler(_req: Request) -> Response {
-    ///     Response::ok("Hello World!")
+    /// async fn handler(req: Request) -> Response {
+    ///     if let Some(name) = req.params.get("name") {
+    ///         Response::ok(format!("Hello {}!", &name))
+    ///     } else {
+    ///         Response::ok("Hello World!")
+    ///     }
     /// }
     ///
     /// let mut router = Router::new();
-    /// router.route(Method::GET, "/", handler);
+    /// router.route(Method::GET, "/:name", handler);
     /// ```
     pub fn route<F, Fut>(&mut self, method: Method, path: &str, handler: F)
     where

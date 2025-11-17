@@ -1,9 +1,8 @@
-//! This is a helper module for convenience to easily serve different types of content over HTTP.
+//! This is a helper module that contains useful utilities to serve and receive different kinds of content over HTTP.
 
 use crate::{Response, StreamReader, StreamWriter, StatusCode};
 use tokio::fs;
-use tokio::io::{BufReader, AsyncReadExt, AsyncBufReadExt, AsyncWriteExt};
-use std::io;
+use tokio::io::{AsyncWriteExt};
 use std::io::Result;
 
 /// Returns a 200 OK response with the contents of file located at `path`.
@@ -44,58 +43,14 @@ pub async fn save_streamed_file(
     mut reader: StreamReader,
     path: &str
 ) -> Result<()> {
-    let mut buf_reader = BufReader::new(&mut reader);
     let mut file = tokio::fs::File::create(path).await?;
 
     loop {
-        let mut size_line = String::new();
-        let n = buf_reader.read_line(&mut size_line).await?;
-        if n == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "unexpected eof while reading chunk size",
-            ));
+        match reader.next_chunk().await {
+            Ok(Some(chunk)) => file.write_all(&chunk).await?,
+            Ok(None) => break,
+            Err(e) => return Err(e),
         }
-
-        let size_hex = size_line
-            .trim_end_matches(&['\r', '\n'][..])
-            .split(';')
-            .next()
-            .unwrap_or("0")
-            .trim();
-
-        let size = match usize::from_str_radix(size_hex, 16) {
-            Ok(s) => s,
-            Err(e) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("invalid chunk size: {}", e),
-                ))
-            }
-        };
-
-        if size == 0 {
-            loop {
-                let mut trailer = String::new();
-                let n = buf_reader.read_line(&mut trailer).await?;
-                if n == 0 || trailer == "\r\n" || trailer.trim().is_empty() {
-                    break;
-                }
-            }
-            break;
-        }
-
-        let mut remaining = size;
-        let mut buffer = vec![0u8; 8 * 1024];
-        while remaining > 0 {
-            let to_read = std::cmp::min(remaining, buffer.len());
-            buf_reader.read_exact(&mut buffer[..to_read]).await?;
-            file.write_all(&buffer[..to_read]).await?;
-            remaining -= to_read;
-        }
-
-        let mut crlf = [0u8; 2];
-        buf_reader.read_exact(&mut crlf).await?;
     }
 
     file.flush().await?;
