@@ -1,5 +1,6 @@
-//! Zep is an async HTTP crate focusing on minimalism and performance.
+//! # Zep is an async HTTP crate focusing on minimalism and simplicity.
 //! I made it out of frustration with mainstream HTTP crates, I found that they were too bloated for simple use cases.
+//! I just wanted something simple, minimal, and reasonably fast.
 //!
 //! # Example
 //!

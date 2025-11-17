@@ -3,7 +3,7 @@ use tokio::net::{TcpListener, TcpStream};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::pin::Pin;
-use bytes::{BytesMut};
+use bytes::{Bytes, BytesMut};
 use std::task::{Poll};
 use crate::route::Router;
 use crate::types::{HeaderMap, Method, ParamMap, Request, Response, Version};
@@ -163,7 +163,7 @@ async fn handle_conn(socket: TcpStream, remote_addr: SocketAddr, router: Arc<Rou
     Ok(())
 }
 
-fn serialize_response(resp: &Response) -> Vec<u8> {
+fn serialize_response(resp: &Response) -> Bytes {
     let mut response = format!("HTTP/1.1 {}\r\n", resp.status_code).into_bytes();
     if let Some(headers) = &resp.headers {
         for (key, value) in headers {
@@ -177,7 +177,7 @@ fn serialize_response(resp: &Response) -> Vec<u8> {
             response.extend(body);
         }
     }
-    response
+    response.into()
 }
 
 fn find_headers_end(buf: &BytesMut) -> Option<usize> {

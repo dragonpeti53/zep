@@ -1,8 +1,8 @@
-Zep is a minimal, super simple, async HTTP library in Rust.
+![Crates.io](https://img.shields.io/crates/v/zep)
+
+# Zep is a minimal, super simple, async HTTP library in Rust.
 
 It's designed to be minimal and easy to use, while still being very fast.
-
-Only dependency is `tokio`.
 
 # Example
 
@@ -24,4 +24,4 @@ async fn main() {
 }
 ```
 
-Check out our [docs](https://docs.rs/zep/latest/zep/)!
+Check out the [docs](https://docs.rs/zep/latest/zep/)!
