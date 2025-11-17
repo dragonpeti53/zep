@@ -95,7 +95,7 @@ async fn parse_request(
     );
     let path = match parts.next() {
         Some(part) => part,
-        None => return Err(Error::new(ErrorKind::InvalidData, "Missing method")),
+        None => return Err(Error::new(ErrorKind::InvalidData, "Missing path")),
     }
     .to_string();
     let version = Version::from(
